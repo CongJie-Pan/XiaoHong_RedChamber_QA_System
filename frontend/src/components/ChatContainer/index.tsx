@@ -1,0 +1,274 @@
+'use client';
+
+/**
+ * ChatContainer Component
+ * Main container that assembles the complete chat interface
+ */
+
+import React, { useState, useCallback, useEffect } from 'react';
+import { Menu, X, AlertCircle, RefreshCw } from 'lucide-react';
+import { message as antMessage } from 'antd';
+import { useChatStore, chatSelectors } from '@/store/chat';
+import { useConversationStore, conversationSelectors } from '@/store/conversation';
+import { sendMessage, loadMessages, initializeChatService, cancelCurrentStream, regenerateMessage, editUserMessage } from '@/services/chat';
+import { ConversationList } from '@/components/ConversationList';
+import { MessageList } from '@/components/MessageList';
+import { ChatInput } from '@/components/ChatInput';
+import { useStyles } from './styles';
+
+/**
+ * Error type classification for user-friendly messages
+ */
+function getErrorMessage(error: unknown): { message: string; isRetryable: boolean } {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  const lowerMessage = errorMessage.toLowerCase();
+
+  if (lowerMessage.includes('network') || lowerMessage.includes('fetch') || lowerMessage.includes('connection')) {
+    return {
+      message: '網路連線錯誤。請確認您的網路狀況後再試一次。',
+      isRetryable: true,
+    };
+  }
+
+  if (lowerMessage.includes('rate limit') || lowerMessage.includes('429')) {
+    return {
+      message: '請求太頻繁。請稍候再試。',
+      isRetryable: true,
+    };
+  }
+
+  if (lowerMessage.includes('unauthorized') || lowerMessage.includes('401') || lowerMessage.includes('api key')) {
+    return {
+      message: '驗證失敗。請檢查您的 API 密鑰設定。',
+      isRetryable: false,
+    };
+  }
+
+  if (lowerMessage.includes('timeout')) {
+    return {
+      message: '請求超時。請再試一次。',
+      isRetryable: true,
+    };
+  }
+
+  return {
+    message: `發送訊息失敗：${errorMessage}`,
+    isRetryable: true,
+  };
+}
+
+export interface ChatContainerProps {
+  /** Class name for styling */
+  className?: string;
+}
+
+/**
+ * ChatContainer is the main component that assembles the chat interface
+ */
+export function ChatContainer({ className }: ChatContainerProps) {
+  const { styles, cx } = useStyles();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Get state from stores
+  const isStreaming = useChatStore((state) => state.isStreaming);
+  const error = useChatStore((state) => state.error);
+  const setError = useChatStore((state) => state.setError);
+  const messages = useChatStore(chatSelectors.displayMessages);
+  const isEmpty = messages.length === 0;
+
+  const activeConversation = useConversationStore((state) =>
+    conversationSelectors.activeConversation(state)
+  );
+  const activeConversationId = useConversationStore(
+    (state) => state.activeConversationId
+  );
+
+  // Initialize on mount
+  useEffect(() => {
+    initializeChatService();
+  }, []);
+
+  // Load messages when conversation changes
+  useEffect(() => {
+    if (activeConversationId) {
+      loadMessages(activeConversationId);
+    }
+  }, [activeConversationId]);
+
+  // Handle sending message with improved error handling
+  const handleSend = useCallback(
+    async function retryableSend(content: string) {
+      try {
+        await sendMessage(content, activeConversationId || undefined);
+      } catch (err) {
+        console.error('Failed to send message:', err);
+
+        // Get user-friendly error message
+        const { message: errorMsg, isRetryable } = getErrorMessage(err);
+
+        // Show appropriate notification
+        if (isRetryable) {
+          antMessage.error({
+            content: (
+              <span>
+                {errorMsg}
+                <button
+                  onClick={() => {
+                    antMessage.destroy('send-error');
+                    retryableSend(content); // Retry with same content
+                  }}
+                  style={{
+                    marginLeft: '12px',
+                    padding: '2px 8px',
+                    background: 'transparent',
+                    border: '1px solid currentColor',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                  }}
+                >
+                  重試
+                </button>
+              </span>
+            ),
+            duration: 8,
+            key: 'send-error',
+          });
+        } else {
+          antMessage.error({
+            content: errorMsg,
+            duration: 5,
+            key: 'send-error',
+          });
+        }
+      }
+    },
+    [activeConversationId]
+  );
+
+  // Handle conversation selection
+  const handleConversationSelect = useCallback((id: string) => {
+    setSidebarOpen(false);
+  }, []);
+
+  // Handle new conversation
+  const handleNewConversation = useCallback(() => {
+    useChatStore.getState().clearMessages();
+    useChatStore.getState().resetStreamingState();
+    setSidebarOpen(false);
+  }, []);
+
+  // Toggle sidebar
+  const toggleSidebar = useCallback(() => {
+    setSidebarOpen((prev) => !prev);
+  }, []);
+
+  // Close sidebar
+  const closeSidebar = useCallback(() => {
+    setSidebarOpen(false);
+  }, []);
+
+  // Dismiss error
+  const dismissError = useCallback(() => {
+    setError(null);
+  }, [setError]);
+
+  // Handle stop streaming
+  const handleStop = useCallback(async () => {
+    await cancelCurrentStream();
+  }, []);
+
+  // Handle regenerate message
+  const handleRegenerate = useCallback(async (messageId: string) => {
+    try {
+      await regenerateMessage(messageId);
+    } catch (err) {
+      console.error('Failed to regenerate message:', err);
+      antMessage.error('重新生成失敗，請稍後再試');
+    }
+  }, []);
+
+  // Handle edit user message
+  const handleEdit = useCallback(async (messageId: string, newContent: string) => {
+    try {
+      await editUserMessage(messageId, newContent);
+    } catch (err) {
+      console.error('Failed to edit message:', err);
+      antMessage.error('編輯訊息失敗，請稍後再試');
+    }
+  }, []);
+
+  return (
+    <div className={cx(styles.container, className)}>
+      {/* Sidebar Overlay (mobile) */}
+      {sidebarOpen && (
+        <div className={styles.sidebarOverlay} onClick={closeSidebar} />
+      )}
+
+      {/* Sidebar */}
+      <div className={cx(styles.sidebar, sidebarOpen && styles.sidebarOpen)}>
+        <ConversationList
+          onSelect={handleConversationSelect}
+          onNew={handleNewConversation}
+        />
+      </div>
+
+      {/* Main Content */}
+      <div className={styles.main}>
+        {/* Header */}
+        <div className={styles.header}>
+          <div className={styles.headerLeft}>
+            <button
+              className={styles.menuButton}
+              onClick={toggleSidebar}
+              aria-label="切換選單"
+            >
+              {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+            <h1 className={styles.headerTitle}>
+              {activeConversation?.title || '小紅 (XiaoHong)'}
+            </h1>
+          </div>
+        </div>
+
+        {/* Error Banner */}
+        {error && (
+          <div className={styles.errorBanner}>
+            <AlertCircle size={16} />
+            <span>{error.message}</span>
+            <X
+              size={16}
+              className={styles.errorDismiss}
+              onClick={dismissError}
+            />
+          </div>
+        )}
+
+        {/* Content Area */}
+        <div className={cx(styles.content, isEmpty && styles.contentEmpty)}>
+          {/* Message List */}
+          <div className={styles.messageArea}>
+            <MessageList onRegenerate={handleRegenerate} onEdit={handleEdit} />
+          </div>
+
+          {/* Chat Input */}
+          <div className={styles.inputArea}>
+            <ChatInput
+              onSend={handleSend}
+              disabled={isStreaming}
+              placeholder={
+                isStreaming
+                  ? '正在努力思考...'
+                  : '歡迎問我問題...'
+              }
+              isStreaming={isStreaming}
+              onStop={handleStop}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default ChatContainer;
