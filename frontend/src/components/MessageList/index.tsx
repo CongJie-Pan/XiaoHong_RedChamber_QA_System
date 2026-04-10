@@ -102,10 +102,23 @@ export function MessageList({ className, onRegenerate, onEdit }: MessageListProp
         const shouldAutoScroll = isStreaming || (!userScrolledUpRef.current && isScrolledToBottom);
 
         if (shouldAutoScroll) {
-          container.scrollTo({
-            top: container.scrollHeight,
-            behavior: isStreaming ? 'auto' : 'smooth',
-          });
+          // When there are very few messages (e.g. first turn: 1 user + 1 empty assistant),
+          // scroll to the last USER message instead of the very bottom.
+          // This prevents the user bubble from being pushed out of the viewport
+          // by the empty assistant placeholder during the streaming start phase.
+          const userMessages = container.querySelectorAll('[data-message-id]');
+          const hasMinimalContent = messages.length <= 2 && isStreaming;
+
+          if (hasMinimalContent && userMessages.length > 0) {
+            // Find the last user message element and scroll it into view
+            const firstUserMsg = userMessages[0] as HTMLElement;
+            firstUserMsg.scrollIntoView({ block: 'start', behavior: 'auto' });
+          } else {
+            container.scrollTo({
+              top: container.scrollHeight,
+              behavior: isStreaming ? 'auto' : 'smooth',
+            });
+          }
         }
       });
     }

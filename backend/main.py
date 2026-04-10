@@ -20,8 +20,12 @@ except Exception as e:
     _tokenizer = None
     print(f"Warning: Could not load tokenizer. Ensure transformers is installed. {e}")
 
-# Try loading from the Next.js app directory relative to this script
-env_path = os.path.join(os.path.dirname(__file__), "../.env.local")
+from pathlib import Path
+import os
+from dotenv import load_dotenv
+
+# Try loading from the unified global .env file in the project root
+env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(env_path)
 
 HF_TOKEN = os.environ.get("HF_TOKEN", "")
@@ -86,10 +90,11 @@ try:
         return str(sorted(files, key=lambda x: x.stat().st_mtime)[-1])
         
     # Check if empty data folder issue occurs, if so, fail gracefully
-    latest_faiss_idx = get_latest_file(faiss_dir, "chunks_qwen*.index")
-    latest_faiss_meta = get_latest_file(faiss_dir, "index_metadata_qwen*.json")
+    latest_faiss_idx = get_latest_file(faiss_dir, "chunks*.index")
+    latest_faiss_meta = get_latest_file(faiss_dir, "index_metadata*.json")
     
     if not latest_faiss_idx:
+        latest_faiss_idx = "dummy_not_found.index"  # Prevent Path("") resolving to '.'
         print("Warning: No FAISS index found in data/rag/faiss_index. RAG will not work locally.")
     
     rag_service = RAGService(
@@ -163,7 +168,7 @@ async def stream_endpoint(request: Request, chat_req: ChatRequest):
             
             # 2. Token generation stream phase
             if not HF_ENDPOINT_URL or not HF_TOKEN:
-                chunk_data = {"choices": [{"delta": {"content": "[System Error] HF_ENDPOINT_URL or HF_TOKEN is missing in .env.local."}, "index": 0, "finish_reason": None}]}
+                chunk_data = {"choices": [{"delta": {"content": "[System Error] HF_ENDPOINT_URL or HF_TOKEN is missing in the global .env file."}, "index": 0, "finish_reason": None}]}
                 yield f"data: {json.dumps(chunk_data, ensure_ascii=False)}\n\n"
             else:
                 try:
@@ -272,10 +277,12 @@ async def stream_endpoint(request: Request, chat_req: ChatRequest):
                     if chat_req.force_think:
                         prompt += "<think>\n"
                         # Artificially yield the initial think tag so the strict frontend parser can catch it!
+                        # NOTE: Do NOT include trailing \n here — the parser strips the <think> tag
+                        # and any remaining \n would appear as a blank first line in the thinking panel.
                         chunk_data = {
                             "choices": [
                                 {
-                                    "delta": {"content": "<think>\n"},
+                                    "delta": {"content": "<think>"},
                                     "index": 0,
                                     "finish_reason": None,
                                 }

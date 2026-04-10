@@ -1,2 +1,7 @@
 .env.local
 .env
+data/rag/bm25_index
+data/rag/faiss_index
+backend/.venv
+backend/__pycache__
+frontend/node_modules

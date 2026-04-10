@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node -e \"const fs=require('fs'); if(fs.existsSync('../.env')) fs.copyFileSync('../.env', '.env.local')\"",
     "dev": "next dev",
+    "prebuild": "node -e \"const fs=require('fs'); if(fs.existsSync('../.env')) fs.copyFileSync('../.env', '.env.local')\"",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

@@ -183,7 +183,9 @@ export function ThinkingPanel({
             transition={{ duration: 0.2 }}
           >
             <div ref={contentRef} className={styles.content}>
-              {content || (
+              {/* trimStart() removes leading newlines that may leak through
+                  from the backend's artificial <think>\n injection */}
+              {content.trimStart() || (
                 <span className={styles.emptyContent}>
                   AI 正在分析您的問題...
                 </span>
