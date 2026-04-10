@@ -14,7 +14,7 @@
 
 具體系統建構方法如下圖所示：
 
-![系統建構方法](docs\picture\Overall_dev_process.jpg)
+![系統建構方法](docs/picture/Overall_dev_process.jpg)
 
 🧠 訓練端（LM-ft）：基於 Qwen3-8B 模型，於單張 AWS A10G GPU 環境導入 QLoRA 4-bit 高效微調。系統將古籍轉化為「問題－背景－答案」標準配對，主動過濾口語化樣本，並混入 20% 負樣本訓練「無證據即拒答」機制；同時植入思維鏈（CoT）提示以強化跨章節推理能力。微調完成後封裝為 XiaoHong-v1 API 部署於 Hugging Face，供生成模組即時呼叫。
 
@@ -47,13 +47,13 @@ XiaoHong_RedChamber_QA_System/
 
 若開啟RAG服務，即進行檢索，並將檢索到的文獻作為上下文提供給大語言模型。
 
-![進行RAG檢索](docs\picture\ui\UI_rag.jpg)
+![進行RAG檢索](docs/picture/ui/UI_rag.jpg)
 
 3. 完整答覆
 
 若開啟思考模式，則會根據檢索到的資料，進行條列式的思考分析，最後給出正式詳細的富有專業性的答覆。
 
-![完整答覆](docs\picture\ui\UI_completeAnswer.png)
+![完整答覆](docs/picture/ui/UI_completeAnswer.png)
 
 
 
@@ -114,7 +114,7 @@ The system is cleanly decoupled into two microservices:
 
 The specific system architecture is shown in the following figure:
 
-![System Architecture](docs\picture\Overall_dev_process_eng.jpg)
+![System Architecture](docs/picture/Overall_dev_process_eng.jpg)
 
 🧠 LM-ft (Training): Fine-tune Qwen3-8B via QLoRA 4-bit on single A10G GPU. Train on "Question-Background-Answer" pairs with 20% negative samples for refusal capability, plus CoT prompts for cross-chapter reasoning. Deployed as XiaoHong-v1 API on Hugging Face.
 
@@ -147,13 +147,13 @@ The interface adopts the form of a chatbot, with a simple and elegant pink style
 
 If RAG service is enabled, it will retrieve relevant documents and provide them as context to the large language model.
 
-![RAG Retrieval](docs\picture\ui\UI_rag.jpg)
+![RAG Retrieval](docs/picture/ui/UI_rag.jpg)
 
 3. **Complete Answer**
 
 If thinking mode is enabled, it will analyze the retrieved data in a step-by-step manner and finally provide a formal, detailed, and professional answer.
 
-![Complete Answer](docs\picture\ui\UI_completeAnswer.png)
+![Complete Answer](docs/picture/ui/UI_completeAnswer.png)
 
 ### Step-by-Step Setup Guide
 
