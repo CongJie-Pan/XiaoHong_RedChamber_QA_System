@@ -7,7 +7,7 @@
 ## 繁體中文版本
 
 ### 系統簡介
-**XiaoHong Ancient Chinese QA System (小紅古典文學問答系統)** 是一個基於檢索增強雙重指令微調 (Retrieval-Augmented Double Instruction Tuning, RADIT) 架構，並以《紅樓夢》為場域，所建構的古典文學與國學常識問答系統。本專案為 NSTC (國科會) 學術研究計畫的一部分。
+**XiaoHong Ancient Chinese QA System (小紅古典文學問答系統)** 是一個基於檢索增強雙重指令微調 (Retrieval-Augmented Double Instruction Tuning, RADIT) 架構 [(Lin et al., 2023)](https://arxiv.org/abs/2310.01352)，並以《紅樓夢》為場域，所建構的古典文學與國學常識問答系統。本專案為 NSTC (國科會) 學術研究計畫的一部分。
 本系統分為兩個主要微服務：
 - **Frontend (前端)**：以 Next.js 建構的現代化聊天介面，支援串流 (Streaming) 顯示與文獻溯源卡片。
 - **Backend (後端)**：以 FastAPI 構建的後端微服務，負責處理 RAG 融合檢索 (FAISS + BM25) 以及大語言模型 (LLM) 推理。
@@ -106,7 +106,8 @@ npm run dev
 ## English Version
 
 ### System Introduction
-**XiaoHong Ancient Chinese QA System** is a platform for answering questions about Classical Chinese Literature and sinology, powered by a Retrieval-Augmented Generation (RAG) architecture. This project is a constituent of an NSTC academic research proposal.
+
+**XiaoHong Ancient Chinese QA System** is a platform for answering questions about Classical Chinese Literature and sinology, powered by a Retrieval-Augmented Dual Instruction Tuning (RA-DIT) architecture [(Lin et al., 2023)](https://arxiv.org/abs/2310.01352). This project is a constituent of an NSTC academic research proposal.
 The system is cleanly decoupled into two microservices:
 - **Frontend**: A modernized Next.js chat interface that supports streaming responses and citation tracking.
 - **Backend**: A FastAPI microservice responsible for hybrid retrieval (FAISS + BM25) and Large Language Model (LLM) inference.
