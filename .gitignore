@@ -5,3 +5,5 @@ data/rag/faiss_index
 backend/.venv
 backend/__pycache__
 frontend/node_modules
+/.drift
+/.driftignore

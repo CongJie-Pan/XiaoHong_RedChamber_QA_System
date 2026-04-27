@@ -1,5 +1,5 @@
 {
-  "name": "perplexity_qa",
+  "name": "xiao_hong_qa",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -8,11 +8,12 @@
     "prebuild": "node -e \"const fs=require('fs'); if(fs.existsSync('../.env')) fs.copyFileSync('../.env', '.env.local')\"",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "lint:report": "node -e \"require('fs').mkdirSync('lintAndTypeError_Check',{recursive:true})\" && eslint . > lintAndTypeError_Check/lint-report.txt 2>&1 || echo lint done",
-    "typecheck:report": "node -e \"require('fs').mkdirSync('lintAndTypeError_Check',{recursive:true})\" && tsc --noEmit > lintAndTypeError_Check/typecheck-report.txt 2>&1 || echo typecheck done",
-    "check:report": "npm run lint:report && npm run typecheck:report",
+    "lint:report": "node scripts/generate-error-reports.js lint",
+    "typecheck:report": "node scripts/generate-error-reports.js typecheck",
+    "check:report": "node scripts/generate-error-reports.js all",
+    "check:report:strict": "node scripts/generate-error-reports.js all --strict",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",

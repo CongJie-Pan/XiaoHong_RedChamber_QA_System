@@ -13,7 +13,7 @@ import { API_CONFIG } from '@/config/api';
 import { PerplexityAPIError, StreamParseError, isAbortError } from '@/utils/error';
 import { ThinkTagParser } from './parser';
 import { useChatStore } from '@/store/chat/store';
-import type { ChatMessage, StreamCallbacks, PerplexityStreamChunk } from './types';
+import type { ChatMessage, StreamCallbacks } from './types';
 
 /**
  * Creates a streaming chat request to the Perplexity API proxy
@@ -131,7 +131,6 @@ export async function createChatStream(
 
     const decoder = new TextDecoder();
     let pendingCitations: string[] = [];
-    let incompleteData = ''; // Buffer for incomplete SSE lines
 
     // Read and process the stream using \n\n blocks
     let buffer = '';

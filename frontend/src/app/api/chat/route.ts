@@ -178,8 +178,8 @@ export async function POST(request: NextRequest) {
         ...createRateLimitHeaders(rateLimit.remaining, rateLimit.limit, rateLimit.resetIn),
       },
     });
-  } catch (error: any) {
-    if (error.name === 'AbortError') {
+  } catch (error: unknown) {
+    if (error instanceof Error && error.name === 'AbortError') {
       logger.info('Client aborted the request, propagated to backend', { clientId });
       // Request was cancelled by the client, no response needed (browser handles it)
       return new Response(null, { status: 499 }); // 499 Client Closed Request

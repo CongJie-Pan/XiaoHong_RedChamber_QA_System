@@ -5,7 +5,7 @@
  * Displays a single message in the conversation
  */
 
-import React, { memo, useMemo, useCallback, useState } from 'react';
+import React, { memo, useCallback, useState } from 'react';
 import ReactMarkdown, { Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { User, Bot, Copy, RefreshCw, Edit, Loader2 } from 'lucide-react';
@@ -63,6 +63,7 @@ const markdownComponents: Components = {
       src.startsWith('data:image/')
     );
     if (!isValidSrc) return null;
+    // eslint-disable-next-line @next/next/no-img-element
     return <img src={src as string} alt={alt || ''} {...props} />;
   },
   // Prevent script tags (should be blocked by default, but extra safety)

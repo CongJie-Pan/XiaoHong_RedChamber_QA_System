@@ -21,7 +21,7 @@ const initialState = {
 /**
  * Conversation store for managing conversation list
  */
-export const useConversationStore = create<ConversationStore>((set, get) => ({
+export const useConversationStore = create<ConversationStore>((set) => ({
   ...initialState,
 
   loadConversations: async () => {

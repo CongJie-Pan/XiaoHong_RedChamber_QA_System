@@ -8,8 +8,7 @@
 import React, { useCallback } from 'react';
 import { Button, Popconfirm, Spin } from 'antd';
 import { Plus, MessageSquare, Trash2, MessagesSquare } from 'lucide-react';
-import { useConversationStore, conversationSelectors } from '@/store/conversation';
-import type { Conversation } from '@/database/schema';
+import { useConversationStore } from '@/store/conversation';
 import { useStyles } from './styles';
 
 export interface ConversationListProps {
@@ -63,7 +62,7 @@ export function ConversationList({
   const deleteConversation = useConversationStore((state) => state.deleteConversation);
 
   const handleNew = useCallback(async () => {
-    const id = await createConversation();
+    await createConversation();
     onNew?.();
   }, [createConversation, onNew]);
 

@@ -6,8 +6,8 @@
  * Respects user manual scrolling
  */
 
-import React, { useRef, useEffect, useMemo, useCallback } from 'react';
-import { MessageCircle, ArrowDown } from 'lucide-react';
+import React, { useRef, useEffect, useCallback } from 'react';
+import { ArrowDown } from 'lucide-react';
 import { useChatStore, chatSelectors } from '@/store/chat';
 import { MessageItem } from './MessageItem';
 import { useStyles } from './styles';
@@ -39,7 +39,6 @@ export function MessageList({ className, onRegenerate, onEdit }: MessageListProp
   const currentStreamingId = useChatStore((state) => state.currentStreamingId);
   const thinkingContent = useChatStore((state) => state.thinkingContent);
   const isThinking = useChatStore((state) => state.isThinking);
-  const thinkingStartTime = useChatStore((state) => state.thinkingStartTime);
 
   // RAG States
   const ragStatus = useChatStore((state) => state.ragStatus);

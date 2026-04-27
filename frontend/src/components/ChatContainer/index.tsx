@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { Menu, X, AlertCircle, RefreshCw } from 'lucide-react';
+import { Menu, X, AlertCircle } from 'lucide-react';
 import { message as antMessage } from 'antd';
 import { useChatStore, chatSelectors } from '@/store/chat';
 import { useConversationStore, conversationSelectors } from '@/store/conversation';
@@ -147,7 +147,7 @@ export function ChatContainer({ className }: ChatContainerProps) {
   );
 
   // Handle conversation selection
-  const handleConversationSelect = useCallback((id: string) => {
+  const handleConversationSelect = useCallback(() => {
     setSidebarOpen(false);
   }, []);
 
