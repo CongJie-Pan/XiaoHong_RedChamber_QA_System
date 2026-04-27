@@ -98,56 +98,57 @@ export const useStyles = createStyles(({ css, token }) => ({
     padding: 6px 2px 8px 2px;
 
     // Smooth scrolling & hide scrollbar for webkit
-    scroll-behavior: smooth;
+    /* Scrollbar styling */
     &::-webkit-scrollbar {
-      height: 4px;
+      height: 6px;
     }
     &::-webkit-scrollbar-thumb {
-      background: ${token.colorBorder};
+      background: rgba(255, 255, 255, 0.5);
       border-radius: 4px;
     }
     &::-webkit-scrollbar-track {
-      background: transparent;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
     }
-  `,
+    `,
 
-  sourceCard: css`
-    flex: 0 0 240px; /* Fixed width for cards */
+    sourceCard: css`
+    flex: 0 0 280px; /* Slightly wider cards for larger text */
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 12px;
-    background: ${token.colorFillQuaternary};
-    border: 1px solid ${token.colorBorderSecondary};
+    gap: 10px;
+    padding: 14px;
+    background: #1e1e1e;
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: ${token.borderRadiusLG}px;
     transition: all 0.2s;
     cursor: pointer;
 
     &:hover {
-      background: ${token.colorFillTertiary};
-      border-color: ${token.colorPrimaryBorder};
+      background: #262626;
+      border-color: rgba(255, 255, 255, 0.2);
     }
-  `,
+    `,
 
-  sourceHeader: css`
+    sourceHeader: css`
     display: flex;
     align-items: center;
-    gap: 6px;
-  `,
+    gap: 8px;
+    `,
 
-  sourceTitle: css`
-    font-size: 13px;
-    font-weight: 500;
-    color: ${token.colorText};
+    sourceTitle: css`
+    font-size: 14px;
+    font-weight: 600;
+    color: #ffffff;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-  `,
+    `,
 
-  sourceSnippet: css`
-    font-size: 12px;
-    color: ${token.colorTextSecondary};
-    line-height: 1.5;
+    sourceSnippet: css`
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.7);
+    line-height: 1.6;
     
     // Clamp to 3 lines
     display: -webkit-box;

@@ -10,39 +10,49 @@ export const useStyles = createStyles(({ css, token }) => ({
     display: flex;
     flex-direction: column;
     height: 100%;
-    background: ${token.colorBgLayout};
-    border-right: 1px solid ${token.colorBorderSecondary};
+    background: #262626;
+    color: #f0f0f0;
   `,
 
   header: css`
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
     padding: 16px;
-    border-bottom: 1px solid ${token.colorBorderSecondary};
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
   `,
 
   title: css`
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 600;
-    color: ${token.colorText};
+    color: rgba(255, 255, 255, 0.45);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
   `,
 
   newButton: css`
     display: flex;
     align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border: none;
-    border-radius: ${token.borderRadius}px;
-    background: ${token.colorPrimary};
-    color: ${token.colorWhite};
+    justify-content: flex-start;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
 
     &:hover {
-      background: ${token.colorPrimaryHover};
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    svg {
+      color: #8B1E1E;
     }
   `,
 
@@ -50,81 +60,110 @@ export const useStyles = createStyles(({ css, token }) => ({
     flex: 1;
     overflow-y: auto;
     padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    /* Scrollbar styling */
+    &::-webkit-scrollbar {
+      width: 4px;
+    }
+    &::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+    }
+  `,
+
+  groupTitle: css`
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.5);
+    padding: 20px 12px 10px;
+    letter-spacing: 0.3px;
   `,
 
   item: css`
+    position: relative;
     display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    padding: 12px;
-    margin-bottom: 4px;
-    border-radius: ${token.borderRadius}px;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
     cursor: pointer;
     transition: all 0.2s;
+    user-select: none;
+    margin-bottom: 2px;
 
     &:hover {
-      background: ${token.colorFillTertiary};
+      background: rgba(255, 255, 255, 0.05);
+      
+      .delete-btn {
+        opacity: 1;
+      }
     }
   `,
 
   itemActive: css`
-    background: ${token.colorPrimaryBg};
-
-    &:hover {
-      background: ${token.colorPrimaryBgHover};
+    background: rgba(168, 34, 34, 0.25) !important;
+    
+    &::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 20%;
+      height: 60%;
+      width: 3px;
+      background: #A82222;
+      border-radius: 0 2px 2px 0;
     }
+
+    .conv-title {
+      color: #ffffff;
+      font-weight: 500;
+    }
+  `,
+
+  itemIcon: css`
+    color: rgba(255, 255, 255, 0.4);
+    flex-shrink: 0;
   `,
 
   itemContent: css`
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
   `,
 
   itemTitle: css`
     font-size: 14px;
-    font-weight: 500;
-    color: ${token.colorText};
+    color: rgba(255, 255, 255, 0.85);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    margin-bottom: 4px;
+    transition: color 0.2s;
   `,
 
-  itemPreview: css`
-    font-size: 12px;
-    color: ${token.colorTextTertiary};
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  `,
-
-  itemMeta: css`
-    font-size: 11px;
-    color: ${token.colorTextQuaternary};
-    margin-top: 4px;
-  `,
-
-  itemIcon: css`
-    flex-shrink: 0;
-    color: ${token.colorTextTertiary};
-    margin-top: 2px;
-  `,
-
-  deleteButton: css`
-    flex-shrink: 0;
+  deleteBtn: css`
     opacity: 0;
-    color: ${token.colorTextTertiary};
+    padding: 4px;
+    border-radius: 4px;
+    color: rgba(255, 255, 255, 0.3);
     transition: all 0.2s;
+    flex-shrink: 0;
 
-    .${/* sc-selector */ ''} &:hover & {
-      opacity: 1;
+    &:hover {
+      color: #ff4d4f;
+      background: rgba(255, 77, 79, 0.1);
     }
   `,
 
-  itemHover: css`
-    &:hover .delete-btn {
-      opacity: 1;
-    }
+  loading: css`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
   `,
 
   empty: css`
@@ -133,23 +172,18 @@ export const useStyles = createStyles(({ css, token }) => ({
     align-items: center;
     justify-content: center;
     padding: 40px 20px;
-    color: ${token.colorTextQuaternary};
     text-align: center;
+    opacity: 0.5;
   `,
 
   emptyIcon: css`
     margin-bottom: 12px;
-    opacity: 0.5;
+    color: rgba(255, 255, 255, 0.2);
   `,
 
   emptyText: css`
     font-size: 13px;
-  `,
-
-  loading: css`
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 40px;
+    color: rgba(255, 255, 255, 0.4);
+    line-height: 1.6;
   `,
 }));

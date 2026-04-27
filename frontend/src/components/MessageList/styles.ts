@@ -30,8 +30,8 @@ export const useStyles = createStyles(({ css, token }) => ({
   container: css`
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    padding: 16px;
+    gap: 0;
+    padding: 0;
     overflow-y: auto;
     flex: 1;
   `,
@@ -65,37 +65,24 @@ export const useStyles = createStyles(({ css, token }) => ({
   // MessageItem styles
   messageItem: css`
     display: flex;
-    gap: 12px;
+    flex-direction: column;
+    padding: 32px 0;
+    max-width: 800px;
+    width: 90%;
+    margin: 0 auto;
     animation: ${fadeIn} 0.3s ease-out;
   `,
 
   userMessage: css`
-    flex-direction: row-reverse;
+    align-items: flex-end;
 
     .bubbleWrapper {
       align-items: flex-end;
     }
-  `,
 
-  avatar: css`
-    flex-shrink: 0;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-  `,
-
-  userAvatar: css`
-    background: ${token.colorPrimary};
-    color: ${token.colorWhite};
-  `,
-
-  assistantAvatar: css`
-    background: #F9EBEB;
-    color: #8B1E1E;
+    .userActionButtons {
+      justify-content: flex-end;
+    }
   `,
 
   // AI Message wrapper - vertical layout
@@ -103,16 +90,15 @@ export const useStyles = createStyles(({ css, token }) => ({
     display: flex;
     flex-direction: column;
     gap: 8px;
-    flex: 1;
-    min-width: 0;
-    overflow: hidden; /* Hard clip anything wider than this flex child */
+    width: 100%;
   `,
 
-  // AI Message header - avatar, model name, timestamp in a row
+  // AI Message header - model name, timestamp in a row
   assistantHeader: css`
     display: flex;
     align-items: center;
     gap: 8px;
+    margin-bottom: 8px;
 
     &:hover .hoverTimestamp {
       opacity: 1;
@@ -120,15 +106,15 @@ export const useStyles = createStyles(({ css, token }) => ({
   `,
 
   modelName: css`
-    font-size: 13px;
-    font-weight: 500;
-    color: ${token.colorTextSecondary};
+    font-size: 14px;
+    font-weight: 600;
+    color: #ffffff;
     white-space: nowrap;
   `,
 
   hoverTimestamp: css`
     font-size: 12px;
-    color: ${token.colorTextQuaternary};
+    color: rgba(255, 255, 255, 0.35);
     opacity: 0;
     transition: opacity 0.2s;
     margin-left: 4px;
@@ -137,36 +123,40 @@ export const useStyles = createStyles(({ css, token }) => ({
   bubbleWrapper: css`
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
     width: 100%;
-    min-width: 0;
     gap: 4px;
   `,
 
   bubble: css`
-    padding: 12px 16px;
-    border-radius: ${token.borderRadiusLG}px;
-    line-height: 1.6;
+    padding: 12px 0;
+    line-height: 1.8;
     word-break: break-word;
     overflow-wrap: anywhere;
+    width: fit-content;
     max-width: 100%;
-    overflow: hidden;
   `,
 
   userBubble: css`
-    background: ${token.colorPrimary};
-    color: ${token.colorWhite};
+    background: #2a2a2a;
+    color: #ffffff;
+    align-self: flex-end;
+    padding: 12px 18px;
+    border-radius: 18px;
     border-bottom-right-radius: 4px;
+    max-width: 85%;
+    width: auto;
   `,
 
   assistantBubble: css`
-    background: ${token.colorBgContainer};
-    color: ${token.colorText};
-    border-bottom-left-radius: 4px;
+    background: transparent;
+    color: #f0f0f0;
+    align-self: flex-start;
   `,
 
   content: css`
     font-size: 16px;
+    line-height: 1.8;
+    color: #e0e0e0;
     overflow-wrap: anywhere;
     word-break: break-word;
 
@@ -242,7 +232,7 @@ export const useStyles = createStyles(({ css, token }) => ({
   citationsWrapper: css`
     margin-top: 8px;
     padding-top: 8px;
-    border-top: 1px solid ${token.colorBorderSecondary};
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
     width: 100%;
     min-width: 0;
   `,
@@ -256,19 +246,19 @@ export const useStyles = createStyles(({ css, token }) => ({
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background: ${token.colorPrimary};
-    color: ${token.colorWhite};
+    background: #8B1E1E;
+    color: #ffffff;
     border: none;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
     transition: all 0.2s ease;
     z-index: 10;
 
     &:hover {
-      background: ${token.colorPrimaryHover};
+      background: #A82222;
       transform: translateX(-50%) scale(1.1);
     }
 
@@ -280,7 +270,9 @@ export const useStyles = createStyles(({ css, token }) => ({
   // Action buttons container
   actionButtons: css`
     display: flex;
+    flex-direction: row;
     gap: 8px;
+    margin-top: 4px;
   `,
 
   // Action button style (copy, regenerate)
@@ -288,17 +280,18 @@ export const useStyles = createStyles(({ css, token }) => ({
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     border: none;
-    border-radius: ${token.borderRadius}px;
+    border-radius: 8px;
     background: transparent;
-    color: ${token.colorText};
+    color: rgba(255, 255, 255, 0.4);
     cursor: pointer;
     transition: all 0.2s;
 
     &:hover {
-      color: ${token.colorPrimary};
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.1);
       transform: scale(1.1);
     }
 
@@ -312,22 +305,18 @@ export const useStyles = createStyles(({ css, token }) => ({
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     border: none;
-    border-radius: ${token.borderRadius}px;
+    border-radius: 8px;
     background: transparent;
-    color: ${token.colorText};
+    color: rgba(255, 255, 255, 0.4);
     cursor: pointer;
     transition: all 0.2s;
 
     &:hover {
-      color: ${token.colorPrimary};
-      transform: scale(1.1);
-    }
-
-    &:active {
-      transform: scale(0.95);
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.1);
     }
   `,
 
@@ -335,6 +324,7 @@ export const useStyles = createStyles(({ css, token }) => ({
   userActionButtons: css`
     display: flex;
     gap: 8px;
+    margin-top: 4px;
   `,
 
   // Edit mode container
@@ -343,7 +333,6 @@ export const useStyles = createStyles(({ css, token }) => ({
     flex-direction: column;
     gap: 8px;
     width: 100%;
-    max-width: 80%;
   `,
 
   // Edit textarea
@@ -351,23 +340,23 @@ export const useStyles = createStyles(({ css, token }) => ({
     width: 100%;
     min-height: 80px;
     padding: 12px 16px;
-    border: 1px solid ${token.colorBorderSecondary};
-    border-radius: ${token.borderRadiusLG}px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
     font-size: 14px;
     line-height: 1.6;
     resize: vertical;
     outline: none;
     transition: border-color 0.2s;
     font-family: inherit;
-    background: ${token.colorBgContainer};
-    color: ${token.colorText};
+    background: #1e1e1e;
+    color: #ffffff;
 
     &:focus {
-      border-color: ${token.colorPrimary};
+      border-color: #8B1E1E;
     }
 
     &::placeholder {
-      color: ${token.colorTextPlaceholder};
+      color: rgba(255, 255, 255, 0.3);
     }
   `,
 
@@ -381,7 +370,7 @@ export const useStyles = createStyles(({ css, token }) => ({
   // Edit mode button base
   editButton: css`
     padding: 6px 16px;
-    border-radius: ${token.borderRadius}px;
+    border-radius: 8px;
     font-size: 13px;
     cursor: pointer;
     transition: all 0.2s;
@@ -390,29 +379,28 @@ export const useStyles = createStyles(({ css, token }) => ({
 
   // Save button
   editSaveButton: css`
-    background: ${token.colorPrimary};
-    color: ${token.colorWhite};
+    background: #8B1E1E;
+    color: #ffffff;
 
     &:hover {
-      background: ${token.colorPrimaryHover};
+      background: #A82222;
     }
 
     &:disabled {
-      background: ${token.colorBgContainerDisabled};
-      color: ${token.colorTextDisabled};
+      background: #333333;
+      color: rgba(255, 255, 255, 0.2);
       cursor: not-allowed;
     }
   `,
 
   // Cancel button
   editCancelButton: css`
-    background: ${token.colorBgContainer};
-    color: ${token.colorText};
-    border: 1px solid ${token.colorBorderSecondary};
+    background: transparent;
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.1);
 
     &:hover {
-      border-color: ${token.colorPrimary};
-      color: ${token.colorPrimary};
+      background: rgba(255, 255, 255, 0.05);
     }
   `,
 }));

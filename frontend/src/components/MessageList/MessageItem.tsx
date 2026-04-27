@@ -179,12 +179,9 @@ export const MessageItem = memo(function MessageItem({
       className={cx(styles.messageItem, isUser && styles.userMessage)}
       data-message-id={message.id}
     >
-      {/* User Message: Simple avatar + bubble layout */}
+      {/* User Message: Simple bubble layout */}
       {isUser ? (
         <>
-          <div className={styles.avatar + ' ' + styles.userAvatar}>
-            <User size={16} />
-          </div>
           {isEditing ? (
             /* Edit Mode */
             <div className={styles.editModeContainer}>
@@ -221,23 +218,23 @@ export const MessageItem = memo(function MessageItem({
                 </div>
               </div>
               <div className={styles.userActionButtons}>
-                <Tooltip title="複製訊息">
+                <Tooltip title="複製訊息" color="#262626" styles={{ body: { color: '#ffffff' } }}>
                   <button
                     className={styles.actionButton}
                     onClick={handleCopy}
                     aria-label="複製訊息"
                   >
-                    <Copy size={14} />
+                    <Copy size={16} />
                   </button>
                 </Tooltip>
                 {onEdit && (
-                  <Tooltip title="編輯訊息">
+                  <Tooltip title="編輯訊息" color="#262626" styles={{ body: { color: '#ffffff' } }}>
                     <button
                       className={styles.actionButton}
                       onClick={handleEditClick}
                       aria-label="編輯訊息"
                     >
-                      <Edit size={14} />
+                      <Edit size={16} />
                     </button>
                   </Tooltip>
                 )}
@@ -248,11 +245,8 @@ export const MessageItem = memo(function MessageItem({
       ) : (
         /* AI Message: Header row + bubble below */
         <div className={styles.assistantMessageWrapper}>
-          {/* Header: Avatar + Model Name + Timestamp */}
+          {/* Header: Model Name + Timestamp */}
           <div className={cx(styles.assistantHeader, 'assistantHeader')}>
-            <div className={cx(styles.avatar, styles.assistantAvatar)}>
-              <Bot size={16} />
-            </div>
             <span className={styles.modelName}>小紅 (XiaoHong) </span>
             {!isStreaming && message.createdAt && (
               <span className={cx(styles.hoverTimestamp, 'hoverTimestamp')}>
@@ -312,23 +306,23 @@ export const MessageItem = memo(function MessageItem({
 
             {/* Action Buttons */}
             <div className={styles.actionButtons}>
-              <Tooltip title="複製訊息">
+              <Tooltip title="複製訊息" color="#262626" styles={{ body: { color: '#ffffff' } }}>
                 <button
                   className={styles.actionButton}
                   onClick={handleCopy}
                   aria-label="複製訊息"
                 >
-                  <Copy size={14} />
+                  <Copy size={16} />
                 </button>
               </Tooltip>
               {onRegenerate && !isStreaming && (
-                <Tooltip title="重新生成">
+                <Tooltip title="重新生成" color="#262626" styles={{ body: { color: '#ffffff' } }}>
                   <button
                     className={styles.actionButton}
                     onClick={handleRegenerate}
                     aria-label="重新生成訊息"
                   >
-                    <RefreshCw size={14} />
+                    <RefreshCw size={16} />
                   </button>
                 </Tooltip>
               )}

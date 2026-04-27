@@ -15,17 +15,19 @@ export const useStyles = createStyles(({ css, token }) => ({
     display: flex;
     flex-direction: column;
     gap: 0;
-    padding: 12px 16px 10px;
-    background: ${token.colorBgElevated};
-    border: 1px solid ${token.colorBorder};
-    border-radius: ${token.borderRadiusLG}px;
-    margin: 0 16px 16px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-    transition: border-color 0.2s, box-shadow 0.2s;
+    padding: 12px 20px 10px;
+    background: #1e1e1e;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 24px;
+    max-width: 800px;
+    width: 90%;
+    margin: 0 auto 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    transition: all 0.2s ease;
 
     &:focus-within {
-      border-color: ${token.colorPrimary};
-      box-shadow: 0 0 0 2px ${token.colorPrimaryBg};
+      border-color: #8B1E1E;
+      box-shadow: 0 0 0 2px rgba(139, 30, 30, 0.2);
     }
   `,
 
@@ -34,17 +36,17 @@ export const useStyles = createStyles(({ css, token }) => ({
     width: 100%;
     min-height: 44px;
     max-height: 200px;
-    padding: 4px 0;
+    padding: 8px 0;
     border: none;
     background: transparent;
-    color: ${token.colorText};
+    color: #f0f0f0;
     font-size: 16px;
     line-height: 1.5;
     resize: none;
     outline: none;
 
     &::placeholder {
-      color: ${token.colorTextPlaceholder};
+      color: rgba(255, 255, 255, 0.35);
     }
 
     &:disabled {
@@ -58,7 +60,7 @@ export const useStyles = createStyles(({ css, token }) => ({
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-top: 8px;
+    margin-top: 4px;
     gap: 8px;
   `,
 
@@ -130,34 +132,35 @@ export const useStyles = createStyles(({ css, token }) => ({
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    padding: 4px 10px;
+    padding: 4px 12px;
     height: 32px;
-    border: 1px solid ${token.colorBorder};
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 16px;
     background: transparent;
-    color: ${token.colorTextSecondary};
-    font-size: 14px;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 13px;
     cursor: pointer;
     transition: all 0.2s;
     white-space: nowrap;
-
     &:hover {
-      color: ${token.colorPrimary};
-      border-color: ${token.colorPrimary};
-      background: ${token.colorPrimaryBg};
+      color: #ffffff !important;
+      background: #262626 !important;
+      border-color: rgba(255, 255, 255, 0.3) !important;
     }
-  `,
+`,
 
-  toggleButtonActive: css`
-    color: ${token.colorPrimary};
-    border-color: ${token.colorPrimary};
-    background: ${token.colorPrimaryBg};
-    font-weight: 500;
+toggleButtonActive: css`
+color: #ffffff;
+border-color: #8B1E1E;
+background: rgba(139, 30, 30, 0.2);
+font-weight: 500;
 
-    &:hover {
-      background: ${token.colorPrimaryBgHover};
-    }
-  `,
+&:hover {
+  background: #000000 !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+`,
 
   // Stubs kept for backward-compat so any old references don't cause TS errors
   inputWrapper: css`flex: 1;`,

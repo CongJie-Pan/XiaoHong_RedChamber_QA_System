@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { AntdRegistry } from '@ant-design/nextjs-registry';
-import { ConfigProvider } from 'antd';
+import { ConfigProvider, theme } from 'antd';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import './globals.css';
 
@@ -34,9 +34,15 @@ export default function RootLayout({
           <AntdRegistry>
             <ConfigProvider
               theme={{
+                algorithm: theme.darkAlgorithm,
                 token: {
-                  colorPrimary: '#8B1E1E', // Lighter dark red
+                  colorPrimary: '#8B1E1E',
                   colorInfo: '#8B1E1E',
+                  colorBgBase: '#0d0d0d',
+                  colorBgContainer: '#262626',
+                  colorBgElevated: '#262626',
+                  colorBgLayout: '#0d0d0d',
+                  colorTextBase: '#f0f0f0',
                 },
               }}
             >

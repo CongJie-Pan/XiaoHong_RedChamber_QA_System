@@ -164,8 +164,8 @@ export function Citations({
       <Modal
         title={
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <BookOpen size={18} style={{ color: '#ff6b81' }} />
-            <span>文獻原文詳情</span>
+            <BookOpen size={18} style={{ color: '#ff4d4f' }} />
+            <span style={{ color: '#ffffff' }}>文獻原文詳情</span>
           </div>
         }
         open={!!selectedSource}
@@ -175,30 +175,53 @@ export function Citations({
         width={600}
         styles={{
           mask: { backdropFilter: 'blur(4px)' },
-          content: { borderRadius: '16px' }
+          content: { 
+            borderRadius: '16px', 
+            background: '#262626',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            padding: 0,
+            overflow: 'hidden'
+          },
+          body: {
+            background: '#262626',
+            padding: '20px',
+            margin: 0
+          },
+          header: {
+            background: '#262626',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+            padding: '16px 20px',
+            margin: 0
+          },
+          footer: {
+            background: '#262626',
+            margin: 0,
+            padding: 0,
+            border: 'none'
+          }
         }}
       >
         {selectedSource && (
           <div style={{ padding: '4px 0' }}>
             <div style={{ marginBottom: '16px' }}>
-              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>{selectedSource.title}</h3>
-              <div style={{ marginTop: '4px', color: '#8c8c8c', fontSize: '12px' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: '#ffffff' }}>{selectedSource.title}</h3>
+              <div style={{ marginTop: '4px', color: 'rgba(255, 255, 255, 0.45)', fontSize: '12px' }}>
                 識別碼: {selectedSource.chunk_id}
               </div>
             </div>
-            <Divider style={{ margin: '12px 0' }} />
+            <Divider style={{ margin: '12px 0', borderColor: 'rgba(255, 255, 255, 0.05)' }} />
             
             <div style={{ 
               position: 'relative', 
               padding: '16px 20px', 
-              background: '#fff9fa', 
+              background: '#333333', 
               borderRadius: '12px',
-              border: '1px solid #ffeef0',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
               lineHeight: 1.8,
               fontSize: '15px',
-              color: '#333'
+              color: '#f0f0f0'
             }}>
-              <Quote size={24} style={{ position: 'absolute', top: '10px', left: '8px', opacity: 0.1, color: '#ff6b81' }} />
+              <Quote size={24} style={{ position: 'absolute', top: '10px', left: '8px', opacity: 0.2, color: '#ff4d4f' }} />
               <div style={{ position: 'relative', zIndex: 1 }}>
                 {selectedSource.snippet}
               </div>

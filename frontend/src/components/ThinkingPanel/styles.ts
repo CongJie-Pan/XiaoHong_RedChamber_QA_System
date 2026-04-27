@@ -68,15 +68,15 @@ export const useStyles = createStyles(({ css, token }) => ({
 
   thinkingLabel: css`
     font-size: 14px;
-    color: ${token.colorTextSecondary};
+    color: rgba(255, 255, 255, 0.85);
   `,
 
   shinyText: css`
     background: linear-gradient(
       120deg,
-      ${token.colorTextTertiary} 40%,
-      ${token.colorText} 50%,
-      ${token.colorTextTertiary} 60%
+      rgba(255, 255, 255, 0.45) 40%,
+      rgba(255, 255, 255, 0.95) 50%,
+      rgba(255, 255, 255, 0.45) 60%
     );
     background-clip: text;
     -webkit-background-clip: text;
@@ -87,7 +87,7 @@ export const useStyles = createStyles(({ css, token }) => ({
 
   duration: css`
     font-size: 13px;
-    color: ${token.colorTextQuaternary};
+    color: rgba(255, 255, 255, 0.5);
   `,
 
   content: css`

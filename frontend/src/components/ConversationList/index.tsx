@@ -2,11 +2,11 @@
 
 /**
  * ConversationList Component
- * Sidebar displaying conversation history
+ * Sidebar displaying conversation history grouped by time
  */
 
-import React, { useCallback } from 'react';
-import { Button, Popconfirm, Spin } from 'antd';
+import React, { useCallback, useMemo } from 'react';
+import { Spin } from 'antd';
 import { Plus, MessageSquare, Trash2, MessagesSquare } from 'lucide-react';
 import { useConversationStore } from '@/store/conversation';
 import { useStyles } from './styles';
@@ -23,26 +23,6 @@ export interface ConversationListProps {
 }
 
 /**
- * Format date for display
- */
-function formatDate(date: Date): string {
-  const now = new Date();
-  const d = new Date(date);
-  const diffTime = now.getTime() - d.getTime();
-  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-  if (diffDays === 0) {
-    return '今天';
-  } else if (diffDays === 1) {
-    return '昨天';
-  } else if (diffDays < 7) {
-    return `${diffDays} 天前`;
-  } else {
-    return d.toLocaleDateString();
-  }
-}
-
-/**
  * ConversationList displays all conversations in sidebar
  */
 export function ConversationList({
@@ -53,7 +33,6 @@ export function ConversationList({
 }: ConversationListProps) {
   const { styles, cx } = useStyles();
 
-  // Get state from store
   const conversations = useConversationStore((state) => state.conversations);
   const activeId = useConversationStore((state) => state.activeConversationId);
   const isLoading = useConversationStore((state) => state.isLoading);
@@ -62,9 +41,10 @@ export function ConversationList({
   const deleteConversation = useConversationStore((state) => state.deleteConversation);
 
   const handleNew = useCallback(async () => {
-    await createConversation();
+    // We don't create a conversation in DB yet (Lazy creation)
+    // Just trigger the callback to reset the UI
     onNew?.();
-  }, [createConversation, onNew]);
+  }, [onNew]);
 
   const handleSelect = useCallback(
     (id: string) => {
@@ -72,17 +52,6 @@ export function ConversationList({
       onSelect?.(id);
     },
     [selectConversation, onSelect]
-  );
-
-  // Handle keyboard navigation for accessibility
-  const handleKeyDown = useCallback(
-    (id: string, e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        handleSelect(id);
-      }
-    },
-    [handleSelect]
   );
 
   const handleDelete = useCallback(
@@ -94,90 +63,87 @@ export function ConversationList({
     [deleteConversation, onDelete]
   );
 
+  /**
+   * Group conversations by date
+   */
+  const groupedConversations = useMemo(() => {
+    const groups: { [key: string]: typeof conversations } = {
+      今天: [],
+      昨天: [],
+      過去七天: [],
+      更早以前: [],
+    };
+
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    conversations.forEach((conv) => {
+      const date = new Date(conv.updatedAt);
+      date.setHours(0, 0, 0, 0);
+      const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+
+      if (diffDays === 0) groups['今天'].push(conv);
+      else if (diffDays === 1) groups['昨天'].push(conv);
+      else if (diffDays < 7) groups['過去七天'].push(conv);
+      else groups['更早以前'].push(conv);
+    });
+
+    return Object.entries(groups).filter(([_, items]) => items.length > 0);
+  }, [conversations]);
+
   return (
     <div className={cx(styles.container, className)}>
-      {/* Header */}
+      {/* Action Area */}
       <div className={styles.header}>
-        <span className={styles.title}>歷史對話</span>
-        <button
-          className={styles.newButton}
-          onClick={handleNew}
-          aria-label="建立新對話"
-        >
+        <button className={styles.newButton} onClick={handleNew}>
           <Plus size={18} />
+          <span>新對話</span>
         </button>
       </div>
 
-      {/* Conversation List */}
+      {/* List Area */}
       <div className={styles.list}>
         {isLoading ? (
           <div className={styles.loading}>
             <Spin size="small" />
-            <span style={{ marginTop: 8, fontSize: 12, color: '#666' }}>
-              讀取對話中...
-            </span>
           </div>
         ) : conversations.length === 0 ? (
           <div className={styles.empty}>
             <MessagesSquare size={32} className={styles.emptyIcon} />
-            <p className={styles.emptyText}>
-              尚無對話紀錄。<br />
-              開始新對話吧！
-            </p>
+            <p className={styles.emptyText}>尚無對話紀錄</p>
           </div>
         ) : (
-          conversations.map((conv) => (
-            <div
-              key={conv.id}
-              className={cx(
-                styles.item,
-                styles.itemHover,
-                conv.id === activeId && styles.itemActive
-              )}
-              onClick={() => handleSelect(conv.id)}
-              onKeyDown={(e) => handleKeyDown(conv.id, e)}
-              role="button"
-              tabIndex={0}
-              aria-label={`Conversation: ${conv.title}, ${conv.messageCount} messages, last updated ${formatDate(conv.updatedAt)}`}
-              aria-current={conv.id === activeId ? 'page' : undefined}
-            >
-              <MessageSquare size={16} className={styles.itemIcon} aria-hidden="true" />
-
-              <div className={styles.itemContent}>
-                <div className={styles.itemTitle}>{conv.title}</div>
-                {conv.lastMessagePreview && (
-                  <div className={styles.itemPreview}>
-                    {conv.lastMessagePreview}
+          groupedConversations.map(([group, items]) => (
+            <React.Fragment key={group}>
+              <div className={styles.groupTitle}>{group}</div>
+              {items.map((conv) => (
+                <div
+                  key={conv.id}
+                  className={cx(
+                    styles.item,
+                    conv.id === activeId && styles.itemActive
+                  )}
+                  onClick={() => handleSelect(conv.id)}
+                >
+                  <MessageSquare size={16} className={styles.itemIcon} />
+                  <div className={styles.itemContent}>
+                    <span className={cx(styles.itemTitle, 'conv-title')}>
+                      {conv.title || '新對話'}
+                    </span>
                   </div>
-                )}
-                <div className={styles.itemMeta}>
-                  {conv.messageCount} 則訊息 &middot;{' '}
-                  {formatDate(conv.updatedAt)}
+                  <button
+                    className={cx(styles.deleteBtn, 'delete-btn')}
+                    onClick={(e) => handleDelete(conv.id, e)}
+                    title="刪除對話"
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
-              </div>
-
-              <Popconfirm
-                title="刪除對話？"
-                description="此操作無法復原。"
-                onConfirm={(e) => handleDelete(conv.id, e as React.MouseEvent)}
-                okText="刪除"
-                cancelText="取消"
-                okButtonProps={{ danger: true }}
-              >
-                <Button
-                  type="text"
-                  size="small"
-                  icon={<Trash2 size={14} />}
-                  className={`delete-btn ${styles.deleteButton}`}
-                  onClick={(e) => e.stopPropagation()}
-                />
-              </Popconfirm>
-            </div>
+              ))}
+            </React.Fragment>
           ))
         )}
       </div>
     </div>
   );
 }
-
-export default ConversationList;
