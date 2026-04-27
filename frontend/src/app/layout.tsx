@@ -26,7 +26,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
@@ -35,8 +35,8 @@ export default function RootLayout({
             <ConfigProvider
               theme={{
                 token: {
-                  colorPrimary: '#ff6b81', // A pleasant pink color
-                  colorInfo: '#ff6b81',
+                  colorPrimary: '#661919', // Dark red color
+                  colorInfo: '#661919',
                 },
               }}
             >

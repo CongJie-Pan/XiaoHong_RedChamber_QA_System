@@ -5,6 +5,7 @@
 
 export { ThinkingPanel } from './ThinkingPanel';
 export { Citations } from './Citations';
+export { RAGStatusPanel } from './RAGStatusPanel';
 export { MessageList, MessageItem } from './MessageList';
 export { ChatInput } from './ChatInput';
 export { ConversationList } from './ConversationList';

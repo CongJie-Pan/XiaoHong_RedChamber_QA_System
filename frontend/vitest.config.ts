@@ -5,8 +5,8 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: ['./tests/setup.ts'],
-    include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
+    setupFiles: [path.resolve(__dirname, '../tests/frontend/setup.ts')],
+    include: ['../tests/frontend/**/*.test.ts', '../tests/frontend/**/*.test.tsx'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],
@@ -25,9 +25,20 @@ export default defineConfig({
       },
     },
   },
+  server: {
+    fs: {
+      allow: [
+        path.resolve(__dirname, '..'),
+      ],
+    },
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      'react': path.resolve(__dirname, './node_modules/react'),
+      'react-dom': path.resolve(__dirname, './node_modules/react-dom'),
+      '@testing-library/react': path.resolve(__dirname, './node_modules/@testing-library/react'),
+      '@testing-library/jest-dom': path.resolve(__dirname, './node_modules/@testing-library/jest-dom'),
     },
   },
 });

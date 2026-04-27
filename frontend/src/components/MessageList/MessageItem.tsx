@@ -8,10 +8,11 @@
 import React, { memo, useCallback, useState } from 'react';
 import ReactMarkdown, { Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { User, Bot, Copy, RefreshCw, Edit, Loader2 } from 'lucide-react';
+import { User, Bot, Copy, RefreshCw, Edit} from 'lucide-react';
 import { Tooltip, message as antMessage } from 'antd';
 import { ThinkingPanel } from '@/components/ThinkingPanel';
 import { Citations } from '@/components/Citations';
+import { RAGStatusPanel } from '@/components/RAGStatusPanel';
 import type { CitationSource } from '@/components/Citations';
 import type { DisplayMessage } from '@/store/chat';
 import { useStyles } from './styles';
@@ -264,6 +265,11 @@ export const MessageItem = memo(function MessageItem({
           <div className={cx(styles.bubbleWrapper, 'bubbleWrapper')}>
             {/* Message Bubble */}
             <div className={cx(styles.bubble, styles.assistantBubble)}>
+              {/* RAG Status Panel - Should be at the top and only visible before thinking starts */}
+              {ragInfo && ragInfo.status !== 'idle' && !thinking?.isThinking && !thinking?.content && !message.reasoning && (
+                <RAGStatusPanel ragInfo={ragInfo} isStreaming={isStreaming} />
+              )}
+
               {/* Thinking Panel */}
               {(thinking?.isThinking || message.reasoning) && (
                 <div className={styles.thinkingPanelWrapper}>
@@ -273,14 +279,6 @@ export const MessageItem = memo(function MessageItem({
                     isThinking={thinking?.isThinking}
                     defaultExpanded={thinking?.isThinking}
                   />
-                </div>
-              )}
-
-              {/* RAG Loading Phase */}
-              {['retrieving', 'searching_dense', 'searching_sparse', 'reranking'].includes(ragInfo?.status || '') && (
-                <div className={styles.ragLoaderContainer}>
-                  <Loader2 size={16} className={styles.ragSpinnerIcon} />
-                  <span className={styles.ragLoaderText}>📂 RAG 檢索當中</span>
                 </div>
               )}
 

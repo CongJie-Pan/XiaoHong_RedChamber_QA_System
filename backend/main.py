@@ -25,8 +25,13 @@ import os
 from dotenv import load_dotenv
 
 # Try loading from the unified global .env file in the project root
-env_path = Path(__file__).resolve().parent.parent / ".env"
-load_dotenv(env_path)
+# Support both .env and .env.local
+for env_name in [".env", ".env.local"]:
+    env_path = Path(__file__).resolve().parent.parent / env_name
+    if env_path.exists():
+        load_dotenv(env_path)
+        print(f"Loaded environment variables from {env_name}")
+        break
 
 HF_TOKEN = os.environ.get("HF_TOKEN", "")
 HF_ENDPOINT_URL = os.environ.get("HF_ENDPOINT_URL", "")
@@ -193,7 +198,12 @@ async def stream_endpoint(request: Request, chat_req: ChatRequest):
                             try:
                                 context_results_obj = None
                                 # Loop through generator to yield SSE progress events!
-                                for event in rag_service.retrieve_with_events(last_user_msg):
+                                # Use an executor to avoid blocking the event loop with synchronous RAG operations
+                                gen = rag_service.retrieve_with_events(last_user_msg)
+                                while True:
+                                    event = await asyncio.get_running_loop().run_in_executor(_thread_pool, next, gen, None)
+                                    if event is None:
+                                        break
                                     if event["type"] == "status":
                                         status_payload = {"status": event["status"], "message": event["message"]}
                                         yield f"event: status\ndata: {json.dumps(status_payload, ensure_ascii=False)}\n\n"
@@ -204,7 +214,10 @@ async def stream_endpoint(request: Request, chat_req: ChatRequest):
                                     context_texts = []
                                     sources_payload = []
                                     
-                                    for idx, chunk in enumerate(context_results_obj.final_results, 1):
+                                    # Filter out results with empty or whitespace-only text
+                                    valid_results = [r for r in context_results_obj.final_results if r.text and r.text.strip()]
+                                    
+                                    for idx, chunk in enumerate(valid_results, 1):
                                         # Try multiple attributes to get a meaningful source title
                                         # Priority: chunk.source > chunk.metadata.source > chunk.metadata.book > chunk_id prefix
                                         raw_source = (

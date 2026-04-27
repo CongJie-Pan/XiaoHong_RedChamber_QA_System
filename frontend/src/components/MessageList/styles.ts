@@ -166,7 +166,7 @@ export const useStyles = createStyles(({ css, token }) => ({
   `,
 
   content: css`
-    font-size: 14px;
+    font-size: 15px;
     overflow-wrap: anywhere;
     word-break: break-word;
 
@@ -237,33 +237,6 @@ export const useStyles = createStyles(({ css, token }) => ({
 
   thinkingPanelWrapper: css`
     margin-bottom: 12px;
-  `,
-
-  ragLoaderContainer: css`
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 12px;
-    padding: 10px 14px;
-    background: ${token.colorFillQuaternary};
-    border-radius: ${token.borderRadius}px;
-    border-left: 3px solid ${token.colorPrimary};
-    animation: ${fadeIn} 0.3s ease-out;
-  `,
-
-  ragSpinnerIcon: css`
-    color: ${token.colorPrimary};
-    animation: spin 1s linear infinite;
-    @keyframes spin {
-      from { transform: rotate(0deg); }
-      to   { transform: rotate(360deg); }
-    }
-  `,
-
-  ragLoaderText: css`
-    font-size: 13px;
-    color: ${token.colorTextSecondary};
-    font-weight: 500;
   `,
 
   citationsWrapper: css`

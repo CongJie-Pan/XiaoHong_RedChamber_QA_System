@@ -81,7 +81,6 @@ cd backend
 
 # 安裝依賴
 pip install -r requirements.txt
-pip install fastapi uvicorn pydantic python-dotenv openai transformers faiss-cpu
 
 # 啟動伺服器 (預設在 8000 port)
 # 當終端機出現 `INFO:Application startup complete.` 時，表示後端已順利啟動。
@@ -179,7 +178,6 @@ cd backend
 
 # Install Dependencies
 pip install -r requirements.txt
-pip install fastapi uvicorn pydantic python-dotenv openai transformers faiss-cpu
 
 # Run the Server (Defaults to port 8000)
 # When the terminal shows `INFO:Application startup complete.`, it means the backend has started successfully.

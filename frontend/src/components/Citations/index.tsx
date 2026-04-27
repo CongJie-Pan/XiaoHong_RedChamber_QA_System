@@ -6,8 +6,9 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { ChevronRight, ExternalLink, BookOpen } from 'lucide-react';
+import { ChevronRight, ExternalLink, BookOpen, Quote } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Modal, Divider } from 'antd';
 import { useStyles } from './styles';
 
 export interface CitationSource {
@@ -56,9 +57,18 @@ export function Citations({
 }: CitationsProps) {
   const { styles, cx } = useStyles();
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const [selectedSource, setSelectedSource] = useState<CitationSource | null>(null);
 
   const toggleExpanded = useCallback(() => {
     setIsExpanded((prev) => !prev);
+  }, []);
+
+  const openSourceModal = useCallback((src: CitationSource) => {
+    setSelectedSource(src);
+  }, []);
+
+  const closeSourceModal = useCallback(() => {
+    setSelectedSource(null);
   }, []);
 
   // Handle keyboard navigation for accessibility
@@ -113,7 +123,11 @@ export function Citations({
             {hasSources ? (
               <div className={styles.sourcesGrid}>
                 {sources!.map((src, index) => (
-                  <div key={src.chunk_id || index} className={styles.sourceCard}>
+                  <div 
+                    key={src.chunk_id || index} 
+                    className={styles.sourceCard}
+                    onClick={() => openSourceModal(src)}
+                  >
                     <div className={styles.sourceHeader}>
                       <span className={styles.linkNumber}>{index + 1}</span>
                       <span className={styles.sourceTitle}>{src.title || '古籍文獻'}</span>
@@ -145,6 +159,57 @@ export function Citations({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Source Detail Modal */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <BookOpen size={18} style={{ color: '#ff6b81' }} />
+            <span>文獻原文詳情</span>
+          </div>
+        }
+        open={!!selectedSource}
+        onCancel={closeSourceModal}
+        footer={null}
+        centered
+        width={600}
+        styles={{
+          mask: { backdropFilter: 'blur(4px)' },
+          content: { borderRadius: '16px' }
+        }}
+      >
+        {selectedSource && (
+          <div style={{ padding: '4px 0' }}>
+            <div style={{ marginBottom: '16px' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>{selectedSource.title}</h3>
+              <div style={{ marginTop: '4px', color: '#8c8c8c', fontSize: '12px' }}>
+                識別碼: {selectedSource.chunk_id}
+              </div>
+            </div>
+            <Divider style={{ margin: '12px 0' }} />
+            
+            <div style={{ 
+              position: 'relative', 
+              padding: '16px 20px', 
+              background: '#fff9fa', 
+              borderRadius: '12px',
+              border: '1px solid #ffeef0',
+              lineHeight: 1.8,
+              fontSize: '15px',
+              color: '#333'
+            }}>
+              <Quote size={24} style={{ position: 'absolute', top: '10px', left: '8px', opacity: 0.1, color: '#ff6b81' }} />
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                {selectedSource.snippet}
+              </div>
+            </div>
+            
+            <div style={{ marginTop: '20px', textAlign: 'right', fontSize: '12px', color: '#bfbfbf' }}>
+              * 以上內容為 RAG 檢索之原文片段
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

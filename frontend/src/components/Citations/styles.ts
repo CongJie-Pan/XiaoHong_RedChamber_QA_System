@@ -121,7 +121,7 @@ export const useStyles = createStyles(({ css, token }) => ({
     border: 1px solid ${token.colorBorderSecondary};
     border-radius: ${token.borderRadiusLG}px;
     transition: all 0.2s;
-    cursor: default;
+    cursor: pointer;
 
     &:hover {
       background: ${token.colorFillTertiary};

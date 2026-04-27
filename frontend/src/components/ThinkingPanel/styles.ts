@@ -67,7 +67,7 @@ export const useStyles = createStyles(({ css, token }) => ({
   `,
 
   thinkingLabel: css`
-    font-size: 13px;
+    font-size: 14px;
     color: ${token.colorTextSecondary};
   `,
 
@@ -86,19 +86,19 @@ export const useStyles = createStyles(({ css, token }) => ({
   `,
 
   duration: css`
-    font-size: 12px;
+    font-size: 13px;
     color: ${token.colorTextQuaternary};
   `,
 
   content: css`
     padding: 12px 16px;
     border-top: 1px solid ${token.colorBorderSecondary};
-    font-size: 13px;
+    font-size: 15px;
     line-height: 1.6;
     color: ${token.colorTextSecondary};
     white-space: pre-wrap;
     word-break: break-word;
-    max-height: 300px;
+    max-height: 400px;
     overflow-y: auto;
   `,
 
