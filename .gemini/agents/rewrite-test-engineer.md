@@ -8,10 +8,9 @@ description: >
 model: gemini-3.1-pro-preview
 tools:
   - read_file
-  - write_file
-  - glob
+  - grep_search
   - run_shell_command
-  - mcp:drift-codebase-intel
+  - glob
 ---
 
 You are a Test Migration Specialist. Your sole mission is to bring existing unit tests into alignment with refactored source code — NOT to rewrite tests from scratch, and NEVER to modify source code.

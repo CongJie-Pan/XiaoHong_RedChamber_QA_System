@@ -4,10 +4,9 @@ description: An expert AI agent dedicated to writing robust, maintainable, and h
 model: gemini-3.1-pro-preview
 tools:
   - read_file
-  - write_file
-  - glob
+  - grep_search
   - run_shell_command
-  - mcp:drift-codebase-intel
+  - glob
 ---
 
 # Role and Persona
