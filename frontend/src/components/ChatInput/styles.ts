@@ -38,7 +38,7 @@ export const useStyles = createStyles(({ css, token }) => ({
     border: none;
     background: transparent;
     color: ${token.colorText};
-    font-size: 14px;
+    font-size: 16px;
     line-height: 1.5;
     resize: none;
     outline: none;
@@ -131,12 +131,12 @@ export const useStyles = createStyles(({ css, token }) => ({
     align-items: center;
     gap: 5px;
     padding: 4px 10px;
-    height: 28px;
+    height: 32px;
     border: 1px solid ${token.colorBorder};
-    border-radius: 14px;
+    border-radius: 16px;
     background: transparent;
     color: ${token.colorTextSecondary};
-    font-size: 12px;
+    font-size: 14px;
     cursor: pointer;
     transition: all 0.2s;
     white-space: nowrap;

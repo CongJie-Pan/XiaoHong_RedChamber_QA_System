@@ -93,7 +93,7 @@ export const useStyles = createStyles(({ css, token }) => ({
   content: css`
     padding: 12px 16px;
     border-top: 1px solid ${token.colorBorderSecondary};
-    font-size: 15px;
+    font-size: 16px;
     line-height: 1.6;
     color: ${token.colorTextSecondary};
     white-space: pre-wrap;

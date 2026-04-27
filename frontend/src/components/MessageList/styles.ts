@@ -94,8 +94,8 @@ export const useStyles = createStyles(({ css, token }) => ({
   `,
 
   assistantAvatar: css`
-    background: #ffd6e7;
-    color: #c2185b;
+    background: #F9EBEB;
+    color: #8B1E1E;
   `,
 
   // AI Message wrapper - vertical layout
@@ -166,7 +166,7 @@ export const useStyles = createStyles(({ css, token }) => ({
   `,
 
   content: css`
-    font-size: 15px;
+    font-size: 16px;
     overflow-wrap: anywhere;
     word-break: break-word;
 

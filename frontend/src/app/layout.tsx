@@ -35,8 +35,8 @@ export default function RootLayout({
             <ConfigProvider
               theme={{
                 token: {
-                  colorPrimary: '#661919', // Dark red color
-                  colorInfo: '#661919',
+                  colorPrimary: '#8B1E1E', // Lighter dark red
+                  colorInfo: '#8B1E1E',
                 },
               }}
             >
