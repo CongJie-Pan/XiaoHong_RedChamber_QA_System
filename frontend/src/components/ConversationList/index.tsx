@@ -39,6 +39,7 @@ export function ConversationList({
   const createConversation = useConversationStore((state) => state.createConversation);
   const selectConversation = useConversationStore((state) => state.selectConversation);
   const deleteConversation = useConversationStore((state) => state.deleteConversation);
+  const streamingTitles = useConversationStore((state) => state.streamingTitles);
 
   const handleNew = useCallback(async () => {
     // We don't create a conversation in DB yet (Lazy creation)
@@ -128,7 +129,14 @@ export function ConversationList({
                   <MessageSquare size={16} className={styles.itemIcon} />
                   <div className={styles.itemContent}>
                     <span className={cx(styles.itemTitle, 'conv-title')}>
-                      {conv.title || '新對話'}
+                      {streamingTitles[conv.id] !== undefined ? (
+                        <>
+                          {streamingTitles[conv.id]}
+                          <span className={styles.cursor} />
+                        </>
+                      ) : (
+                        conv.title || '新對話'
+                      )}
                     </span>
                   </div>
                   <button

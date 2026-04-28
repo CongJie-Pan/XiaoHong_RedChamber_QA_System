@@ -10,7 +10,7 @@ export const useStyles = createStyles(({ css, token }) => ({
     display: flex;
     flex-direction: column;
     height: 100%;
-    background: #262626;
+    background: #2d2d2d;
     color: #f0f0f0;
   `,
 
@@ -52,7 +52,7 @@ export const useStyles = createStyles(({ css, token }) => ({
     }
 
     svg {
-      color: #8B1E1E;
+      color: #FF4D4D;
     }
   `,
 
@@ -142,6 +142,26 @@ export const useStyles = createStyles(({ css, token }) => ({
     overflow: hidden;
     text-overflow: ellipsis;
     transition: color 0.2s;
+  `,
+
+  cursor: css`
+    display: inline-block;
+    width: 2px;
+    height: 14px;
+    background: #A82222;
+    margin-left: 2px;
+    vertical-align: middle;
+    animation: blink 1s step-end infinite;
+
+    @keyframes blink {
+      from,
+      to {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0;
+      }
+    }
   `,
 
   deleteBtn: css`

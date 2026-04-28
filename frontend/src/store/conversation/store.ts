@@ -16,6 +16,7 @@ const initialState = {
   activeConversationId: null as string | null,
   isLoading: false,
   error: null as Error | null,
+  streamingTitles: {} as Record<string, string>,
 };
 
 /**
@@ -87,6 +88,86 @@ export const useConversationStore = create<ConversationStore>((set) => ({
 
   setError: (error: Error | null) => {
     set({ error });
+  },
+
+  generateTitle: async (conversationId: string, messages: { role: string; content: string }[]) => {
+    try {
+      // Start streaming state
+      set((state) => ({
+        streamingTitles: { ...state.streamingTitles, [conversationId]: '' },
+      }));
+
+      const response = await fetch('/api/title', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ messages }),
+      });
+
+      if (!response.ok || !response.body) {
+        throw new Error('Failed to generate title');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let fullTitle = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.trim().startsWith('data: ')) {
+            const dataStr = line.trim().slice(6);
+            if (dataStr === '[DONE]') continue;
+            if (dataStr.startsWith('[ERROR]')) continue;
+            
+            try {
+              const data = JSON.parse(dataStr);
+              if (data.content) {
+                fullTitle += data.content;
+                set((state) => ({
+                  streamingTitles: {
+                    ...state.streamingTitles,
+                    [conversationId]: fullTitle,
+                  },
+                }));
+              }
+            } catch (e) {
+              // Ignore parse errors for incomplete chunks
+            }
+          }
+        }
+      }
+
+      // Persist the final title
+      if (fullTitle.trim()) {
+        const finalTitle = fullTitle.trim();
+        await databaseService.conversation.update(conversationId, { title: finalTitle });
+        
+        // Refresh conversations to show the persistent title
+        const conversations = await databaseService.conversation.getAll();
+        set({ conversations });
+      }
+
+      // Cleanup
+      set((state) => {
+        const newStreamingTitles = { ...state.streamingTitles };
+        delete newStreamingTitles[conversationId];
+        return { streamingTitles: newStreamingTitles };
+      });
+    } catch (error) {
+      console.error('Error generating title:', error);
+      set((state) => {
+        const newStreamingTitles = { ...state.streamingTitles };
+        delete newStreamingTitles[conversationId];
+        return { streamingTitles: newStreamingTitles };
+      });
+    }
   },
 }));
 

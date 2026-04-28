@@ -141,6 +141,76 @@ class ChatRequest(BaseModel):
     max_tokens: int = 2048
     repetition_penalty: float = 1.15
 
+class TitleRequest(BaseModel):
+    messages: List[Dict[str, str]]
+
+@app.post("/api/generate_title")
+async def generate_title_endpoint(request: Request, title_req: TitleRequest):
+    """
+    Generate a conversation title using OpenRouter (qwen/qwen-2.5-7b-instruct).
+    Returns a stream of the generated title.
+    """
+    async def generate():
+        api_key = os.environ.get("OPENROUTER_API_KEY")
+        if not api_key:
+            print("Error: OPENROUTER_API_KEY is missing")
+            yield "data: [ERROR] OPENROUTER_API_KEY missing\n\n"
+            yield "data: [DONE]\n\n"
+            return
+
+        client = AsyncOpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=api_key,
+            timeout=30.0
+        )
+
+        system_prompt = "你是一個助理，請根據以下對話內容，總結出一個簡短的繁體中文對話標題（不超過 10 個字，不要加引號或其他標點符號）。"
+        
+        # We only need the first user message and assistant reply to generate a title
+        # Filter messages to ensure we don't send too much context
+        filtered_messages = [msg for msg in title_req.messages if msg["role"] in ["user", "assistant"]]
+        
+        full_messages = [
+            {"role": "system", "content": system_prompt}
+        ] + filtered_messages
+
+        try:
+            response = await client.chat.completions.create(
+                model="qwen/qwen-2.5-7b-instruct",
+                messages=full_messages,
+                stream=True,
+                max_tokens=64,
+                temperature=0.7,
+                top_p=0.9,
+            )
+
+            async for chunk in response:
+                if await request.is_disconnected():
+                    break
+                
+                if not chunk.choices:
+                    continue
+                    
+                content = chunk.choices[0].delta.content
+                if content:
+                    yield f"data: {json.dumps({'content': content}, ensure_ascii=False)}\n\n"
+                    
+        except Exception as e:
+            print(f"Title generation error: {e}")
+            yield f"data: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
+        
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive"
+        }
+    )
+
 @app.post("/api/retrieve")
 async def retrieve_endpoint(req: RetrieveRequest):
     """

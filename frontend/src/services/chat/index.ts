@@ -144,15 +144,9 @@ export async function sendMessage(
   chatStore.startStreaming(assistantMessageId);
 
   // Build messages array for API using shared filter function
+  // We use the messages FROM THE STORE to ensure consistency
   const latestState = useChatStore.getState();
-  const apiMessages = prepareMessagesForAPI(latestState.messages, assistantMessageId)
-    .filter((msg) => !(msg.role === 'user' && msg.content === sanitizedContent)); // Exclude current message to avoid duplicate
-
-  // Always include the current user message at the end (ensures it's sent even if store hasn't updated)
-  const messages: ChatMessage[] = [
-    ...apiMessages,
-    { role: 'user', content: sanitizedContent },
-  ];
+  const messages = prepareMessagesForAPI(latestState.messages, assistantMessageId);
 
   // Track state for database save
   let thinkingContent = '';
@@ -239,6 +233,17 @@ export async function sendMessage(
 
           // Reload conversations to update stats
           await conversationStore.loadConversations();
+
+          // Trigger title generation if this is the first assistant response
+          // 'messages' contains only the preceding messages (in this case, just the first user message)
+          if (messages.length === 1 && answerContent) {
+            const titleMessages = [
+              ...messages,
+              { role: 'assistant', content: answerContent }
+            ];
+            // Start title generation in background (streaming to store)
+            useConversationStore.getState().generateTitle(conversationIdForSave, titleMessages);
+          }
 
           // Clear abort controller reference
           currentAbortController = null;
@@ -560,6 +565,16 @@ export async function regenerateMessage(messageId: string): Promise<void> {
           // Reload conversations to update stats
           await conversationStore.loadConversations();
 
+          // Trigger title generation if this is the first assistant response
+          if (apiMessages.length === 1 && answerContent) {
+            const titleMessages = [
+              ...apiMessages,
+              { role: 'assistant', content: answerContent }
+            ];
+            // Start title generation in background (streaming to store)
+            useConversationStore.getState().generateTitle(activeConversationId, titleMessages);
+          }
+
           // Clear abort controller reference
           currentAbortController = null;
         },
@@ -744,6 +759,16 @@ export async function editUserMessage(
 
           // Reload conversations to update stats
           await conversationStore.loadConversations();
+
+          // Trigger title generation if this is the first assistant response
+          if (apiMessages.length === 1 && answerContent) {
+            const titleMessages = [
+              ...apiMessages,
+              { role: 'assistant', content: answerContent }
+            ];
+            // Start title generation in background (streaming to store)
+            useConversationStore.getState().generateTitle(activeConversationId, titleMessages);
+          }
 
           // Clear abort controller reference
           currentAbortController = null;

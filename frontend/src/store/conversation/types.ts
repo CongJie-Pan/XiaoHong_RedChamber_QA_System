@@ -17,6 +17,8 @@ export interface ConversationState {
   isLoading: boolean;
   /** Current error if any */
   error: Error | null;
+  /** Map of conversation IDs to their currently streaming title */
+  streamingTitles: Record<string, string>;
 }
 
 /**
@@ -37,6 +39,8 @@ export interface ConversationActions {
   clearActiveConversation: () => void;
   /** Set error state */
   setError: (error: Error | null) => void;
+  /** Generate a conversation title using streaming */
+  generateTitle: (conversationId: string, messages: { role: string; content: string }[]) => Promise<void>;
 }
 
 /**

@@ -44,12 +44,6 @@ export const messageRepo = {
           conv.messageCount = (conv.messageCount || 0) + 1;
           conv.lastMessagePreview = message.content.slice(0, 100);
           conv.updatedAt = new Date();
-
-          // Set title from first user message
-          if (conv.messageCount === 1 && message.role === 'user') {
-            conv.title =
-              message.content.slice(0, 50) + (message.content.length > 50 ? '...' : '');
-          }
         });
     });
 

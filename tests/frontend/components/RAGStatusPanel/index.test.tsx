@@ -11,12 +11,12 @@ vi.mock('../../../../frontend/src/components/RAGStatusPanel/styles', () => ({
       container: 'container',
       header: 'header',
       statusInfo: 'statusInfo',
+      radarWrapper: 'radarWrapper',
+      radarCore: 'radarCore',
+      radarRing: 'radarRing',
       checkIcon: 'checkIcon',
-      spinnerIcon: 'spinnerIcon',
       statusText: 'statusText',
       sourceCount: 'sourceCount',
-      progressTrack: 'progressTrack',
-      progressBar: 'progressBar',
     },
     cx: (...args: any[]) => args.filter(Boolean).join(' '),
   }),
@@ -29,7 +29,7 @@ describe('RAGStatusPanel', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('Scenario 2: Searching/Retrieving - shows loader and progress bar', () => {
+  it('Scenario 2: Searching/Retrieving - shows radar animation', () => {
     const ragInfo: RAGInfo = {
       status: 'searching_dense',
       message: '📖 翻閱古籍索引...',
@@ -39,24 +39,24 @@ describe('RAGStatusPanel', () => {
     
     expect(screen.getByText('📖 翻閱古籍索引...')).toBeInTheDocument();
     
-    // Check progress bar width
-    const progressBar = container.querySelector('.progressBar') as HTMLElement;
-    expect(progressBar).toBeInTheDocument();
-    expect(progressBar.style.width).toBe('30%'); // searching_dense maps to 30
+    // Check for radar animation elements
+    expect(container.querySelector('.radarWrapper')).toBeInTheDocument();
+    expect(container.querySelector('.radarCore')).toBeInTheDocument();
+    expect(container.querySelector('.radarRing')).toBeInTheDocument();
   });
 
-  it('Scenario 3: Complete/Generating - shows check icon and sources, hides progress bar', () => {
+  it('Scenario 3: Complete/Generating - shows check icon and sources', () => {
     const ragInfo: RAGInfo = {
       status: 'sources_ready',
-      message: '✅ 找到 5 筆文獻',
+      message: '已找到 5 筆文獻',
       sources: Array(5).fill({ title: 'Mock Source', snippet: 'text', score: 1, chunk_id: '1' }),
     };
     const { container } = render(<RAGStatusPanel ragInfo={ragInfo} />);
     
-    expect(screen.getByText('✅ 找到 5 筆文獻')).toBeInTheDocument();
+    expect(screen.getByText('已找到 5 筆文獻')).toBeInTheDocument();
     expect(screen.getByText('找到 5 筆文獻')).toBeInTheDocument();
     
-    const progressBar = container.querySelector('.progressBar');
-    expect(progressBar).not.toBeInTheDocument();
+    // Radar should be gone, replaced by completion indicator (checkIcon)
+    expect(container.querySelector('.radarWrapper')).not.toBeInTheDocument();
   });
 });

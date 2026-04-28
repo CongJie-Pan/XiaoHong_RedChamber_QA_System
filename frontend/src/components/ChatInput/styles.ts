@@ -16,8 +16,8 @@ export const useStyles = createStyles(({ css, token }) => ({
     flex-direction: column;
     gap: 0;
     padding: 12px 20px 10px;
-    background: #1e1e1e;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: #2a2a2a;
+    border: 2px solid rgba(255, 255, 255, 0.1);
     border-radius: 24px;
     max-width: 800px;
     width: 90%;
@@ -26,8 +26,8 @@ export const useStyles = createStyles(({ css, token }) => ({
     transition: all 0.2s ease;
 
     &:focus-within {
-      border-color: #8B1E1E;
-      box-shadow: 0 0 0 2px rgba(139, 30, 30, 0.2);
+      border-color: #A82222;
+      box-shadow: 0 0 0 2px rgba(168, 34, 34, 0.2);
     }
   `,
 
