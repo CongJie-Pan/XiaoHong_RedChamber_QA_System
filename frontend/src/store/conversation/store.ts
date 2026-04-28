@@ -137,8 +137,9 @@ export const useConversationStore = create<ConversationStore>((set) => ({
                   },
                 }));
               }
-            } catch (e) {
+            } catch (error) {
               // Ignore parse errors for incomplete chunks
+              void error;
             }
           }
         }

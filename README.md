@@ -1,4 +1,8 @@
-# 🌸XiaoHong Ancient Chinese QA System (小紅古典文學問答系統)
+# 小紅 : 您的紅樓夢專業問答助手 | Xiao Hong Ancient Chinese QA System
+
+<p align="center">
+  <img src="docs/logo/complteLogo_03_whiteText.png" alt="XiaoHong Logo" width="400">
+</p>
 
 [English Version](#english-version) | [繁體中文版本](#繁體中文版本)
 

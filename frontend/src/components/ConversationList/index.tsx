@@ -6,6 +6,7 @@
  */
 
 import React, { useCallback, useMemo } from 'react';
+import Image from 'next/image';
 import { Spin } from 'antd';
 import { Plus, MessageSquare, Trash2, MessagesSquare } from 'lucide-react';
 import { useConversationStore } from '@/store/conversation';
@@ -36,7 +37,6 @@ export function ConversationList({
   const conversations = useConversationStore((state) => state.conversations);
   const activeId = useConversationStore((state) => state.activeConversationId);
   const isLoading = useConversationStore((state) => state.isLoading);
-  const createConversation = useConversationStore((state) => state.createConversation);
   const selectConversation = useConversationStore((state) => state.selectConversation);
   const deleteConversation = useConversationStore((state) => state.deleteConversation);
   const streamingTitles = useConversationStore((state) => state.streamingTitles);
@@ -89,11 +89,23 @@ export function ConversationList({
       else groups['更早以前'].push(conv);
     });
 
-    return Object.entries(groups).filter(([_, items]) => items.length > 0);
+    return Object.entries(groups).filter(([, items]) => items.length > 0);
   }, [conversations]);
 
   return (
     <div className={cx(styles.container, className)}>
+      {/* Logo Area */}
+      <div className={styles.logoContainer}>
+        <Image 
+          src="/logo/complteLogo_03_whiteText.png" 
+          alt="XiaoHong Logo" 
+          width={180} 
+          height={48}
+          className={styles.logo}
+          priority
+        />
+      </div>
+
       {/* Action Area */}
       <div className={styles.header}>
         <button className={styles.newButton} onClick={handleNew}>

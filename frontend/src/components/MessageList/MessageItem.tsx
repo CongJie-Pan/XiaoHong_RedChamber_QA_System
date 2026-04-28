@@ -8,7 +8,7 @@
 import React, { memo, useCallback, useState } from 'react';
 import ReactMarkdown, { Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { User, Bot, Copy, RefreshCw, Edit} from 'lucide-react';
+import { Copy, RefreshCw, Edit } from 'lucide-react';
 import { Tooltip, message as antMessage } from 'antd';
 import { ThinkingPanel } from '@/components/ThinkingPanel';
 import { Citations } from '@/components/Citations';
@@ -218,7 +218,7 @@ export const MessageItem = memo(function MessageItem({
                 </div>
               </div>
               <div className={styles.userActionButtons}>
-                <Tooltip title="複製訊息" color="#262626" styles={{ body: { color: '#ffffff' } }}>
+                <Tooltip title="複製訊息" color="#262626" styles={{ container: { color: '#ffffff' } }}>
                   <button
                     className={styles.actionButton}
                     onClick={handleCopy}
@@ -228,7 +228,7 @@ export const MessageItem = memo(function MessageItem({
                   </button>
                 </Tooltip>
                 {onEdit && (
-                  <Tooltip title="編輯訊息" color="#262626" styles={{ body: { color: '#ffffff' } }}>
+                  <Tooltip title="編輯訊息" color="#262626" styles={{ container: { color: '#ffffff' } }}>
                     <button
                       className={styles.actionButton}
                       onClick={handleEditClick}
@@ -261,7 +261,7 @@ export const MessageItem = memo(function MessageItem({
             <div className={cx(styles.bubble, styles.assistantBubble)}>
               {/* RAG Status Panel - Should be at the top and only visible before thinking starts */}
               {ragInfo && ragInfo.status !== 'idle' && !thinking?.isThinking && !thinking?.content && !message.reasoning && (
-                <RAGStatusPanel ragInfo={ragInfo} isStreaming={isStreaming} />
+                <RAGStatusPanel ragInfo={ragInfo} />
               )}
 
               {/* Thinking Panel */}
@@ -306,7 +306,7 @@ export const MessageItem = memo(function MessageItem({
 
             {/* Action Buttons */}
             <div className={styles.actionButtons}>
-              <Tooltip title="複製訊息" color="#262626" styles={{ body: { color: '#ffffff' } }}>
+              <Tooltip title="複製訊息" color="#262626" styles={{ container: { color: '#ffffff' } }}>
                 <button
                   className={styles.actionButton}
                   onClick={handleCopy}
@@ -316,7 +316,7 @@ export const MessageItem = memo(function MessageItem({
                 </button>
               </Tooltip>
               {onRegenerate && !isStreaming && (
-                <Tooltip title="重新生成" color="#262626" styles={{ body: { color: '#ffffff' } }}>
+                <Tooltip title="重新生成" color="#262626" styles={{ container: { color: '#ffffff' } }}>
                   <button
                     className={styles.actionButton}
                     onClick={handleRegenerate}

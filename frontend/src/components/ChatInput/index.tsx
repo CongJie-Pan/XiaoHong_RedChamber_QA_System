@@ -147,7 +147,7 @@ export function ChatInput({
       {/* Bottom toolbar: mode buttons left, send button right */}
       <div className={styles.toolbar}>
         <div className={styles.toolbarLeft}>
-          <Tooltip title="切換思考模式" color="#262626" styles={{ body: { color: '#ffffff' } }}>
+          <Tooltip title="切換思考模式" color="#262626" styles={{ container: { color: '#ffffff' } }}>
             <button
               type="button"
               className={cx(styles.toggleButton, forceThink && styles.toggleButtonActive)}
@@ -159,7 +159,7 @@ export function ChatInput({
             </button>
           </Tooltip>
 
-          <Tooltip title="切換 RAG 模式" color="#262626" styles={{ body: { color: '#ffffff' } }}>
+          <Tooltip title="切換 RAG 模式" color="#262626" styles={{ container: { color: '#ffffff' } }}>
             <button
               type="button"
               className={cx(styles.toggleButton, useRag && styles.toggleButtonActive)}

@@ -7,7 +7,8 @@
     "ghcr.io/devcontainers/features/python:1": {
       "version": "3.11",
       "installTools": true
-    }
+    },
+    "ghcr.io/devcontainers/features/git-lfs:1": {}
   },
   "postCreateCommand": "bash .devcontainer/setup.sh",
   "postAttachCommand": "if [ ! -d '.drift' ]; then drift init -y; fi && drift scan",

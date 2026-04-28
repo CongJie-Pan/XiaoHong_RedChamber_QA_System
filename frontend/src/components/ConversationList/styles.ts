@@ -3,9 +3,19 @@
  * CSS-in-JS styles using antd-style
  */
 
-import { createStyles } from 'antd-style';
+import { createStyles, keyframes } from 'antd-style';
 
-export const useStyles = createStyles(({ css, token }) => ({
+const cursorBlink = keyframes`
+  from,
+  to {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+`;
+
+export const useStyles = createStyles(({ css }) => ({
   container: css`
     display: flex;
     flex-direction: column;
@@ -19,6 +29,19 @@ export const useStyles = createStyles(({ css, token }) => ({
     display: flex;
     flex-direction: column;
     gap: 12px;
+  `,
+
+  logoContainer: css`
+    padding: 24px 16px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+  `,
+
+  logo: css`
+    height: 48px;
+    width: auto;
+    object-fit: contain;
   `,
 
   title: css`
@@ -151,17 +174,7 @@ export const useStyles = createStyles(({ css, token }) => ({
     background: #A82222;
     margin-left: 2px;
     vertical-align: middle;
-    animation: blink 1s step-end infinite;
-
-    @keyframes blink {
-      from,
-      to {
-        opacity: 1;
-      }
-      50% {
-        opacity: 0;
-      }
-    }
+    animation: ${cursorBlink} 1s step-end infinite;
   `,
 
   deleteBtn: css`

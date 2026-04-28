@@ -154,7 +154,7 @@ export function ChatContainer({ className }: ChatContainerProps) {
   // Handle new conversation
   const handleNewConversation = useCallback(() => {
     // Just clear UI state and deselect active conversation
-    useConversationStore.getState().selectConversation(null);
+    useConversationStore.getState().clearActiveConversation();
     useChatStore.getState().clearMessages();
     useChatStore.getState().resetStreamingState();
     setSidebarOpen(false);

@@ -19,13 +19,9 @@ export interface RAGInfo {
 
 interface RAGStatusPanelProps {
   ragInfo: RAGInfo;
-  isStreaming?: boolean;
 }
 
-const RAGStatusPanelComponent = ({
-  ragInfo,
-  isStreaming = false,
-}: RAGStatusPanelProps) => {
+const RAGStatusPanelComponent = ({ ragInfo }: RAGStatusPanelProps) => {
   const { styles } = useStyles();
 
   const isComplete = ['sources_ready', 'generating', 'done'].includes(ragInfo.status);

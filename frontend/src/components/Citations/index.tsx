@@ -175,7 +175,7 @@ export function Citations({
         width={600}
         styles={{
           mask: { backdropFilter: 'blur(4px)' },
-          content: { 
+          container: { 
             borderRadius: '16px', 
             background: '#262626',
             border: '1px solid rgba(255, 255, 255, 0.1)',

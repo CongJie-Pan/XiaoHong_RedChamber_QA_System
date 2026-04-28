@@ -3,6 +3,12 @@ set -e
 
 echo "🌸 Initializing XiaoHong QA System Environment..."
 
+# 0. Initialize Git LFS
+echo "📦 Initializing Git LFS..."
+git lfs install --skip-smudge
+git lfs pull
+git lfs install --force
+
 # 1. Install Gemini CLI and Drift if missing
 if ! command -v gemini &> /dev/null || ! command -v drift &> /dev/null; then
     echo "🚀 Installing Gemini CLI and Drift..."
