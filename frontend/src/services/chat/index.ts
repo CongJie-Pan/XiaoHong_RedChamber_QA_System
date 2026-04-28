@@ -122,10 +122,19 @@ export async function sendMessage(
 
   // Create or use existing conversation
   let activeConversationId = conversationId ?? conversationStore.activeConversationId;
+  let isNewConversation = false;
 
   if (!activeConversationId) {
-    // Create new conversation
-    activeConversationId = await conversationStore.createConversation();
+    isNewConversation = true;
+    // Create new conversation in database first to get the ID
+    const conversation = await databaseService.conversation.create();
+    activeConversationId = conversation.id;
+    
+    // Add to the conversation list in store without selecting yet
+    // This avoids triggering the useEffect in ChatContainer prematurely
+    useConversationStore.setState((state) => ({
+      conversations: [conversation, ...state.conversations],
+    }));
   }
 
   // Add user message to store
@@ -137,6 +146,13 @@ export async function sendMessage(
     content: sanitizedContent,
   });
 
+  // If this was a new conversation, now set it as active
+  // This will trigger the useEffect in ChatContainer, but we've already
+  // added the message to both store and database.
+  if (isNewConversation) {
+    conversationStore.selectConversation(activeConversationId);
+  }
+
   // Add assistant message placeholder
   const assistantMessageId = chatStore.addAssistantMessage(activeConversationId);
 
@@ -146,7 +162,23 @@ export async function sendMessage(
   // Build messages array for API using shared filter function
   // We use the messages FROM THE STORE to ensure consistency
   const latestState = useChatStore.getState();
-  const messages = prepareMessagesForAPI(latestState.messages, assistantMessageId);
+  let messages = prepareMessagesForAPI(latestState.messages, assistantMessageId);
+
+  // Fallback: If for some reason the store state isn't reflected yet (async lag),
+  // manually add the current user message to ensure the API doesn't fail.
+  if (messages.length === 0 && sanitizedContent) {
+    messages = [{
+      role: 'user',
+      content: sanitizedContent
+    }];
+  }
+
+  // Safety check: Don't send empty messages to API
+  if (messages.length === 0) {
+    chatStore.stopStreaming();
+    chatStore.setError(new Error('無法準備對話內容，請重新嘗試。'));
+    return;
+  }
 
   // Track state for database save
   let thinkingContent = '';
@@ -346,6 +378,16 @@ export function isStreamActive(): boolean {
 export async function loadMessages(conversationId: string): Promise<void> {
   const chatStore = useChatStore.getState();
 
+  // Optimization: If we already have messages for this conversation, don't reload
+  // This avoids race conditions when starting a new conversation where 
+  // sendMessage has already populated the store.
+  if (
+    chatStore.messages.length > 0 && 
+    chatStore.messages.some(msg => msg.conversationId === conversationId)
+  ) {
+    return;
+  }
+
   try {
     const messages = await databaseService.message.getByConversationId(conversationId);
     chatStore.setMessages(messages);
@@ -483,6 +525,13 @@ export async function regenerateMessage(messageId: string): Promise<void> {
   // Build messages array for API using shared filter function
   const latestState = useChatStore.getState();
   const apiMessages = prepareMessagesForAPI(latestState.messages, assistantMessageId);
+
+  // Safety check: Don't send empty messages to API
+  if (apiMessages.length === 0) {
+    chatStore.stopStreaming();
+    chatStore.setError(new Error('無法準備對話內容（歷史記錄為空），無法重新生成。'));
+    return;
+  }
 
   // Track state for database save
   let thinkingContent = '';

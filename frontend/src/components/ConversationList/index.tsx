@@ -8,7 +8,7 @@
 import React, { useCallback, useMemo } from 'react';
 import Image from 'next/image';
 import { Spin } from 'antd';
-import { Plus, MessageSquare, Trash2, MessagesSquare } from 'lucide-react';
+import { Plus, MessageSquare, Trash2, MessagesSquare, PanelLeftClose } from 'lucide-react';
 import { useConversationStore } from '@/store/conversation';
 import { useStyles } from './styles';
 
@@ -19,6 +19,8 @@ export interface ConversationListProps {
   onNew?: () => void;
   /** Callback when conversation is deleted */
   onDelete?: (conversationId: string) => void;
+  /** Callback to toggle sidebar visibility */
+  onToggleSidebar?: () => void;
   /** Class name for styling */
   className?: string;
 }
@@ -30,6 +32,7 @@ export function ConversationList({
   onSelect,
   onNew,
   onDelete,
+  onToggleSidebar,
   className,
 }: ConversationListProps) {
   const { styles, cx } = useStyles();
@@ -94,16 +97,25 @@ export function ConversationList({
 
   return (
     <div className={cx(styles.container, className)}>
-      {/* Logo Area */}
+      {/* Logo & Toggle Area */}
       <div className={styles.logoContainer}>
-        <Image 
-          src="/logo/complteLogo_03_whiteText.png" 
-          alt="XiaoHong Logo" 
-          width={180} 
-          height={48}
-          className={styles.logo}
-          priority
-        />
+        <div className={styles.logoWrapper}>
+          <Image 
+            src="/logo/complteLogo_03_whiteText.png" 
+            alt="XiaoHong Logo" 
+            width={160} 
+            height={40}
+            className={styles.logo}
+            priority
+          />
+        </div>
+        <button 
+          className={styles.toggleButton} 
+          onClick={onToggleSidebar}
+          title="關閉側邊欄"
+        >
+          <PanelLeftClose size={20} />
+        </button>
       </div>
 
       {/* Action Area */}

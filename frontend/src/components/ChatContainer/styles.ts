@@ -16,9 +16,10 @@ export const useStyles = createStyles(({ css, token }) => ({
   sidebar: css`
     width: 280px;
     flex-shrink: 0;
-    transition: width 0.2s ${token.motionEaseOut};
+    transition: all 0.2s ${token.motionEaseOut};
     background: #2d2d2d;
     border-right: 1px solid rgba(255, 255, 255, 0.05);
+    overflow: hidden;
 
     @media (max-width: 768px) {
       position: fixed;
@@ -33,6 +34,11 @@ export const useStyles = createStyles(({ css, token }) => ({
   sidebarOpen: css`
     @media (max-width: 768px) {
       transform: translateX(0);
+    }
+
+    @media (min-width: 769px) {
+      width: 0;
+      border-right: none;
     }
   `,
 
@@ -90,6 +96,12 @@ export const useStyles = createStyles(({ css, token }) => ({
     }
 
     @media (max-width: 768px) {
+      display: flex;
+    }
+  `,
+
+  menuButtonVisible: css`
+    @media (min-width: 769px) {
       display: flex;
     }
   `,

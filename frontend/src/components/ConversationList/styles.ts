@@ -25,23 +25,52 @@ export const useStyles = createStyles(({ css }) => ({
   `,
 
   header: css`
-    padding: 16px;
+    padding: 4px 16px 16px;
     display: flex;
     flex-direction: column;
     gap: 12px;
   `,
 
   logoContainer: css`
-    padding: 24px 16px 8px;
+    padding: 12px 12px 0px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  `,
+
+  logoWrapper: css`
     display: flex;
     align-items: center;
     justify-content: flex-start;
+    flex: 1;
+    min-width: 0;
   `,
 
   logo: css`
-    height: 48px;
-    width: auto;
+    width: 210px;
+    height: auto;
     object-fit: contain;
+    flex-shrink: 0;
+  `,
+
+  toggleButton: css`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.4);
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s;
+    flex-shrink: 0;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: #ffffff;
+    }
   `,
 
   title: css`

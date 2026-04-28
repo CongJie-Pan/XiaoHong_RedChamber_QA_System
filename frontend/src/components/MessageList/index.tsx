@@ -60,13 +60,11 @@ export function MessageList({ className, onRegenerate, onEdit }: MessageListProp
       userScrolledUpRef.current = false;
       setShowScrollButton(false);
     } else {
-      // User scrolled up - stop auto-scroll (but not during streaming)
-      if (!isStreaming) {
-        userScrolledUpRef.current = true;
-        setShowScrollButton(true);
-      }
+      // User scrolled up - stop auto-scroll
+      userScrolledUpRef.current = true;
+      setShowScrollButton(true);
     }
-  }, [isStreaming]);
+  }, []);
 
   // Add scroll event listener
   useEffect(() => {
@@ -77,12 +75,19 @@ export function MessageList({ className, onRegenerate, onEdit }: MessageListProp
     return () => container.removeEventListener('scroll', handleScroll);
   }, [handleScroll]);
 
-  // Reset user scroll state when streaming starts
+  // Reset user scroll state when streaming starts (if already at bottom)
   useEffect(() => {
     if (isStreaming) {
-      userScrolledUpRef.current = false;
-      // Defer state update to next tick to avoid cascading renders
-      setTimeout(() => setShowScrollButton(false), 0);
+      const container = containerRef.current;
+      if (container) {
+        const isNearBottom =
+          container.scrollHeight - container.scrollTop - container.clientHeight < SCROLL_THRESHOLD;
+        
+        if (isNearBottom) {
+          userScrolledUpRef.current = false;
+          setShowScrollButton(false);
+        }
+      }
     }
   }, [isStreaming]);
 
@@ -96,11 +101,11 @@ export function MessageList({ className, onRegenerate, onEdit }: MessageListProp
           container.scrollHeight - container.scrollTop - container.clientHeight < SCROLL_THRESHOLD;
 
         // Auto-scroll conditions:
-        // 1. During streaming - always follow
-        // 2. User hasn't manually scrolled up AND is near bottom
-        const shouldAutoScroll = isStreaming || (!userScrolledUpRef.current && isScrolledToBottom);
+        // 1. User hasn't manually scrolled up
+        // 2. OR User is already near bottom (resume auto-scroll)
+        const shouldAutoScroll = !userScrolledUpRef.current || isScrolledToBottom;
 
-        if (shouldAutoScroll) {
+        if (shouldAutoScroll && (isStreaming || !userScrolledUpRef.current)) {
           // Special handling for the start of a conversation to ensure the 
           // user message remains visible when an empty assistant message 
           // or RAG status panel appears.
@@ -109,7 +114,6 @@ export function MessageList({ className, onRegenerate, onEdit }: MessageListProp
           
           if (isFirstTurn && isStreaming && messageElements.length > 0) {
             // Scroll to the first message (the user message) to ensure it's visible
-            // instead of jumping to the very bottom which might be empty space
             messageElements[0].scrollIntoView({ block: 'start', behavior: 'smooth' });
           } else {
             container.scrollTo({

@@ -212,6 +212,7 @@ export function ChatContainer({ className }: ChatContainerProps) {
         <ConversationList
           onSelect={handleConversationSelect}
           onNew={handleNewConversation}
+          onToggleSidebar={toggleSidebar}
         />
       </div>
 
@@ -221,14 +222,14 @@ export function ChatContainer({ className }: ChatContainerProps) {
         <div className={styles.header}>
           <div className={styles.headerLeft}>
             <button
-              className={styles.menuButton}
+              className={cx(styles.menuButton, sidebarOpen && styles.menuButtonVisible)}
               onClick={toggleSidebar}
-              aria-label="切換選單"
+              aria-label="打開選單"
             >
-              {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+              <Menu size={20} />
             </button>
             <h1 className={styles.headerTitle}>
-              {activeConversation?.title || '小紅 (XiaoHong)'}
+              {activeConversation?.title || ''}
             </h1>
           </div>
         </div>
