@@ -1,19 +1,22 @@
 'use client';
 
-/**
- * ErrorBoundary Component
- * Catches JavaScript errors in child component tree and displays fallback UI
- */
+// =================================================================
+// ERROR BOUNDARY COMPONENT
+// Why: Provides a safety net for the application. If a React 
+// component crashes, this boundary catches the error and displays 
+// a user-friendly fallback UI instead of a blank screen or a 
+// broken interface.
+// =================================================================
 
 import React, { Component, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 export interface ErrorBoundaryProps {
-  /** Child components to wrap */
+  /** Child components to wrap in the boundary */
   children: ReactNode;
-  /** Optional custom fallback UI */
+  /** Optional custom fallback UI to override the default display */
   fallback?: ReactNode;
-  /** Callback when error is caught */
+  /** Callback for external error tracking or logging */
   onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
 }
 
@@ -23,8 +26,7 @@ interface ErrorBoundaryState {
 }
 
 /**
- * ErrorBoundary catches JavaScript errors anywhere in the child component tree,
- * logs those errors, and displays a fallback UI instead of the crashed component tree.
+ * ErrorBoundary catches JavaScript errors anywhere in the child component tree
  */
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
@@ -32,26 +34,50 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     this.state = { hasError: false, error: null };
   }
 
+  // =================================================================
+  // STATIC METHODS
+  // Why: Lifecycle method to update state after an error is thrown.
+  // =================================================================
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
 
+  // =================================================================
+  // LIFECYCLE METHODS
+  // =================================================================
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
+    // Why: Log the error to console for debugging purposes.
     console.error('ErrorBoundary caught an error:', error, errorInfo);
+    
+    // IF: Error callback is provided
+    // Why: Propagate error to parent components or external services (e.g., Sentry).
     this.props.onError?.(error, errorInfo);
   }
 
+  // =================================================================
+  // EVENT HANDLERS
+  // =================================================================
   handleReset = (): void => {
+    // Why: Clear local error state and refresh the window as a "hard reset" 
+    // to clear any corrupted memory or stale state.
     this.setState({ hasError: false, error: null });
     window.location.reload();
   };
 
+  // =================================================================
+  // RENDERING
+  // =================================================================
   render(): ReactNode {
+    // IF: An error has occurred in the child tree
     if (this.state.hasError) {
+      // IF: A custom fallback was provided
+      // Why: Allows specific parts of the UI to fail gracefully while 
+      // showing context-specific retry buttons.
       if (this.props.fallback) {
         return this.props.fallback;
       }
 
+      // DEFAULT: Global Fallback UI
       return (
         <div
           style={{
@@ -117,6 +143,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             <RefreshCw size={16} aria-hidden="true" />
             Reload Application
           </button>
+          
+          {/* 
+              DEBUG VIEW: Display technical details in development
+              Why: Speeds up debugging by showing the stack trace without 
+              forcing the developer to check the browser console.
+          */}
           {process.env.NODE_ENV === 'development' && this.state.error && (
             <details
               style={{
@@ -160,6 +192,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       );
     }
 
+    // NORMAL CASE: Render children as-is
     return this.props.children;
   }
 }

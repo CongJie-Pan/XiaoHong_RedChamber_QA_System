@@ -29,6 +29,12 @@ export interface CitationsProps {
   className?: string;
 }
 
+// =================================================================
+// UTILITY FUNCTIONS
+// Why: Encapsulate pure logic for data transformation and validation
+// outside of the React component lifecycle for better testability.
+// =================================================================
+
 /**
  * Extract domain from URL for display
  * Validates URL protocol for security
@@ -36,7 +42,8 @@ export interface CitationsProps {
 function getDomain(url: string): string {
   try {
     const urlObj = new URL(url);
-    // Validate it's http(s) protocol for security
+    // IF: URL protocol is not http/https
+    // Why: Prevent SSRF or XSS attacks via malicious protocols (e.g., javascript:).
     if (!['http:', 'https:'].includes(urlObj.protocol)) {
       return 'Invalid URL';
     }
@@ -55,6 +62,12 @@ export function Citations({
   defaultExpanded = false,
   className,
 }: CitationsProps) {
+  // =================================================================
+  // HOOKS & STATE MANAGEMENT
+  // Why: Manage local UI state for expansion and modal interaction.
+  // We use local state here because this interaction is ephemeral
+  // and doesn't need to persist across sessions or affect other components.
+  // =================================================================
   const { styles, cx } = useStyles();
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [selectedSource, setSelectedSource] = useState<CitationSource | null>(null);
@@ -71,7 +84,15 @@ export function Citations({
     setSelectedSource(null);
   }, []);
 
+  // =================================================================
+  // EVENT HANDLERS
+  // Why: Standardize interaction patterns, including accessibility
+  // support for keyboard navigation.
+  // =================================================================
+
   // Handle keyboard navigation for accessibility
+  // Why: Ensures users navigating via keyboard (Enter/Space) can
+  // toggle the citations section like a standard button.
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       if (e.key === 'Enter' || e.key === ' ') {

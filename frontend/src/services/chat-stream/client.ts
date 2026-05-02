@@ -15,34 +15,19 @@ import { ThinkTagParser } from './parser';
 import { useChatStore } from '@/store/chat/store';
 import type { ChatMessage, StreamCallbacks } from './types';
 
+// =================================================================
+// CORE STREAMING CLIENT
+// Why: Provides a low-level fetch-based streaming client that 
+// handles the standard SSE (Server-Sent Events) protocol while 
+// supporting custom RAG-specific events and thinking tag parsing.
+// =================================================================
+
 /**
  * Creates a streaming chat request to the local AI backend
  *
  * @param messages - Array of chat messages
  * @param callbacks - Callbacks for handling stream events
  * @param abortSignal - Optional AbortSignal for cancelling the request
- *
- * @example
- * ```typescript
- * const abortController = new AbortController();
- *
- * await createChatStream(
- *   messages,
- *   {
- *     onThinkingStart: () => console.log('Thinking started'),
- *     onThinkingContent: (content) => console.log('Thinking:', content),
- *     onThinkingEnd: () => console.log('Thinking ended'),
- *     onContent: (content) => console.log('Content:', content),
- *     onCitations: (citations) => console.log('Citations:', citations),
- *     onDone: () => console.log('Done'),
- *     onError: (error) => console.error('Error:', error),
- *   },
- *   abortController.signal
- * );
- *
- * // To cancel:
- * abortController.abort();
- * ```
  */
 export async function createChatStream(
   messages: ChatMessage[],
@@ -51,6 +36,8 @@ export async function createChatStream(
   useRag: boolean = false,
   forceThink: boolean = false
 ): Promise<void> {
+  // Why: Initialize a stateful parser to handle <think> tags that 
+  // might be split across multiple network chunks.
   const parser = new ThinkTagParser();
   let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
 
@@ -79,15 +66,21 @@ export async function createChatStream(
   };
 
   if (abortSignal) {
-    // Check if already aborted
+    // IF: AbortSignal is already triggered
+    // Why: Prevent starting a request that the user has already cancelled.
     if (abortSignal.aborted) {
-      return; // Exit early if already aborted
+      return; 
     }
     abortSignal.addEventListener('abort', handleAbort);
   }
 
   try {
-    // Make the request with optional abort signal and timeout
+    // =================================================================
+    // NETWORK REQUEST
+    // Why: Initiate a POST request to the streaming endpoint. 
+    // We use the native Fetch API with ReadableStream for maximum 
+    // compatibility and performance.
+    // =================================================================
     const fetchOptions: RequestInit = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -98,7 +91,6 @@ export async function createChatStream(
       }),
     };
 
-    // Add abort signal if provided
     if (abortSignal) {
       fetchOptions.signal = abortSignal;
     }
@@ -106,6 +98,8 @@ export async function createChatStream(
     const response = await fetch(API_CONFIG.chatEndpoint, fetchOptions);
 
     // Handle HTTP errors
+    // Why: Standardize error formats so the UI can display clear 
+    // messages for common issues (429 Rate Limit, 500 Server Error).
     if (!response.ok) {
       let errorBody: unknown;
       let errorMessage: string;
@@ -122,7 +116,6 @@ export async function createChatStream(
       throw new ChatStreamError(errorMessage, response.status, errorBody);
     }
 
-    // Get the response reader
     const bodyReader = response.body?.getReader();
     if (!bodyReader) {
       throw new Error('No response body available');
@@ -132,7 +125,11 @@ export async function createChatStream(
     const decoder = new TextDecoder();
     let pendingCitations: string[] = [];
 
-    // Read and process the stream using \n\n blocks
+    // =================================================================
+    // STREAM PROCESSING LOOP
+    // Why: Read the incoming byte stream and reconstruct the SSE 
+    // data blocks. Handles incomplete blocks and dispatches events.
+    // =================================================================
     let buffer = '';
     while (true) {
       if (abortSignal?.aborted) {
@@ -142,6 +139,8 @@ export async function createChatStream(
       const { done, value } = await reader.read();
       if (done) break;
 
+      // Why: Decode binary chunks to UTF-8 text and maintain a buffer 
+      // for incomplete lines split by packet boundaries.
       buffer += decoder.decode(value, { stream: true });
       const events = buffer.split('\n\n');
       
@@ -152,6 +151,10 @@ export async function createChatStream(
         if (!eventBlock.trim()) continue;
 
         const lines = eventBlock.split('\n');
+        
+        // Parse "event:" line if present (defaults to 'message')
+        // Why: The backend uses custom event types like 'status' and 
+        // 'sources' to provide RAG metadata alongside the message text.
         const eventTypeLine = lines.find((l) => l.startsWith('event: '));
         const eventType = eventTypeLine ? eventTypeLine.slice(7).trim() : 'message';
 
@@ -160,6 +163,8 @@ export async function createChatStream(
 
         const data = dataLine.slice(6).trim();
 
+        // IF: End-of-stream signal received
+        // Why: Explicitly close the stream according to protocol.
         if (data === '[DONE]') {
           if (pendingCitations.length > 0) {
             callbacks.onCitations(pendingCitations);
@@ -171,25 +176,29 @@ export async function createChatStream(
         try {
           const chunk = JSON.parse(data);
 
+          // IF: Event is a pipeline status update
+          // Why: Update the RAGStatusPanel with the current backend progress.
           if (eventType === 'status') {
             callbacks.onStatus?.(chunk.status, chunk.message);
             continue;
           }
 
+          // IF: Event contains structured search sources
+          // Why: Display the verified literature sources used for retrieval.
           if (eventType === 'sources') {
-            callbacks.onSources?.(chunk); // chunk is an array of source objects
+            callbacks.onSources?.(chunk); 
             continue;
           }
 
           if (eventType === 'suggestions') {
-            callbacks.onSuggestions?.(chunk); // chunk is an array of strings
+            callbacks.onSuggestions?.(chunk);
             continue;
           }
 
           if (eventType === 'metadata') {
-            // Check if usage payload is provided
+            // IF: Usage information is provided
+            // Why: Synchronize token usage with the global store for metrics.
             if (chunk.promptTokens !== undefined || chunk.totalTokens !== undefined) {
-              // Get store state and set token usage!
               useChatStore.getState().setTokenUsage({
                 promptTokens: chunk.promptTokens,
                 completionTokens: chunk.completionTokens,
@@ -199,6 +208,7 @@ export async function createChatStream(
             continue;
           }
 
+          // Handle standard message content chunks
           const content = chunk.choices?.[0]?.delta?.content || '';
 
           if (chunk.citations && chunk.citations.length > 0) {
@@ -206,6 +216,8 @@ export async function createChatStream(
           }
 
           if (content) {
+            // Why: Pass raw content through the ThinkTagParser to 
+            // separate thinking traces from the final answer.
             const parsedChunks = parser.parse(content);
             for (const parsed of parsedChunks) {
               switch (parsed.type) {
@@ -230,25 +242,21 @@ export async function createChatStream(
       }
     }
 
-    // Stream ended without [DONE] signal (handle gracefully)
+    // Stream ended without [DONE] signal
     if (pendingCitations.length > 0) {
       callbacks.onCitations(pendingCitations);
     }
     callbacks.onDone();
   } catch (error) {
-    // Don't call error callback for user-initiated aborts
     if (isAbortError(error)) {
       console.log('[ChatStream] Request aborted by user');
       return;
     }
 
-    // Convert to appropriate error type and call error callback
     let normalizedError: Error;
-
     if (error instanceof ChatStreamError) {
       normalizedError = error;
     } else if (error instanceof Error) {
-      // Check if it's a fetch abort error
       if (error.name === 'AbortError') {
         console.log('[ChatStream] Request aborted');
         return;
@@ -260,10 +268,7 @@ export async function createChatStream(
 
     callbacks.onError(normalizedError);
   } finally {
-    // Clean up resources
     await cleanup();
-
-    // Remove abort listener
     if (abortSignal) {
       abortSignal.removeEventListener('abort', handleAbort);
     }

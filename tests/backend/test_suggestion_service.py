@@ -1,12 +1,12 @@
 import pytest
 import json
 from unittest.mock import AsyncMock, patch, MagicMock
-from src.main.python.services.suggestion_service import SuggestionService
+from backend.services.suggestion_service import SuggestionService
 
 @pytest.mark.asyncio
 async def test_suggestion_service_success():
     # Mock the AsyncOpenAI client
-    with patch('src.main.python.services.suggestion_service.AsyncOpenAI') as mock_openai:
+    with patch('backend.services.suggestion_service.AsyncOpenAI') as mock_openai:
         mock_client = mock_openai.return_value
         mock_client.chat.completions.create = AsyncMock()
         
@@ -39,7 +39,7 @@ async def test_suggestion_service_success():
 @pytest.mark.asyncio
 async def test_suggestion_service_malformed_json():
     # Test that the service fails gracefully with malformed JSON
-    with patch('src.main.python.services.suggestion_service.AsyncOpenAI') as mock_openai:
+    with patch('backend.services.suggestion_service.AsyncOpenAI') as mock_openai:
         mock_client = mock_openai.return_value
         mock_client.chat.completions.create = AsyncMock()
         
@@ -57,7 +57,7 @@ async def test_suggestion_service_malformed_json():
 @pytest.mark.asyncio
 async def test_suggestion_service_timeout():
     # Test that the service fails gracefully on API error
-    with patch('src.main.python.services.suggestion_service.AsyncOpenAI') as mock_openai:
+    with patch('backend.services.suggestion_service.AsyncOpenAI') as mock_openai:
         mock_client = mock_openai.return_value
         mock_client.chat.completions.create = AsyncMock(side_effect=Exception("Timeout"))
         

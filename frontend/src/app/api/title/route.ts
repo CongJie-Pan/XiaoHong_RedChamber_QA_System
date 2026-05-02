@@ -1,6 +1,10 @@
 /**
- * Title Generation API Route (BFF Proxy)
- * Proxies requests to local Python FastAPI backend `/api/generate_title` and handles SSE streaming
+ * Title Generation API Route (BFF - Backend For Frontend)
+ * 
+ * Why this exists:
+ * This route proxies title generation requests to the Python backend. 
+ * Even though titles are short, we use SSE (Streaming) to provide 
+ * immediate feedback to the user as the title is being summarized.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -10,11 +14,15 @@ import {
   logger,
 } from '@/utils';
 
-// Ensure Node.js runtime and force-dynamic for streaming
+// =================================================================
+// RUNTIME CONFIGURATION
+// nodejs: Required for full streaming support.
+// force-dynamic: Ensures Next.js doesn't cache the POST response.
+// =================================================================
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-/** Error response structure */
+/** Standard Error response structure */
 interface ErrorResponse {
   error: {
     message: string;
@@ -24,6 +32,7 @@ interface ErrorResponse {
   };
 }
 
+/** Factory for standardized API error responses */
 function createErrorResponse(
   message: string,
   code: string,
@@ -32,20 +41,12 @@ function createErrorResponse(
   headers?: Record<string, string>
 ): NextResponse<ErrorResponse> {
   const errorBody: ErrorResponse = {
-    error: {
-      message,
-      code,
-      status,
-      ...(retryAfter && { retryAfter }),
-    },
+    error: { message, code, status, ...(retryAfter && { retryAfter }) },
   };
-
-  return NextResponse.json(errorBody, {
-    status,
-    headers: headers || {},
-  });
+  return NextResponse.json(errorBody, { status, headers: headers || {} });
 }
 
+/** Helper to generate RateLimit headers */
 function createRateLimitHeaders(
   remaining: number,
   limit: number,
@@ -62,13 +63,18 @@ export async function POST(request: NextRequest) {
   const clientId = getClientIdentifier(request);
 
   try {
-    // Rate limiting (shared with chat for simplicity or separate if needed)
-    // Here we use a slightly more restrictive limit for title generation
+    // =================================================================
+    // BLOCK: RATE LIMITING
+    // Why: Title generation involves an LLM call. We apply a more 
+    // restrictive limit (10 req/min) compared to chat because titles 
+    // are only needed once per conversation start.
+    // =================================================================
     const rateLimit = checkRateLimit(clientId + '_title', {
       maxRequests: 10,
       windowMs: 60_000,
     });
 
+    // IF: User has reached the limit for title generation
     if (!rateLimit.allowed) {
       logger.warn('Title Rate limit exceeded', { clientId, resetIn: rateLimit.resetIn });
       return createErrorResponse(
@@ -80,44 +86,55 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Parse request body
+    // =================================================================
+    // BLOCK: REQUEST PARSING
+    // Why: Extracts chat history to send to the summarizer model.
+    // =================================================================
     let body: { 
       messages: Array<{ role: string; content: string }>;
     };
     try {
       body = await request.json();
     } catch {
+      // IF: Body is not valid JSON
       return createErrorResponse('Invalid JSON in request body', 'INVALID_JSON', 400);
     }
 
-    // FASTAPI TARGET
+    // =================================================================
+    // BLOCK: BACKEND PROXY
+    // Why: Forwards the request to the dedicated FastAPI title endpoint.
+    // =================================================================
     const fastApiUrl = 'http://127.0.0.1:8000/api/v1/generate-title';
-
     logger.info(`Forwarding title request to internal backend: ${fastApiUrl}`);
 
-    // Forward request to internal FastAPI backend with the AbortSignal
     const fastApiResponse = await fetch(fastApiUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        messages: body.messages,
-      }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: body.messages }),
       signal: request.signal,
     });
 
+    // =================================================================
+    // BLOCK: UPSTREAM VALIDATION
+    // Why: Ensures the backend responded successfully before attempting 
+    // to stream content to the client.
+    // =================================================================
     if (!fastApiResponse.ok) {
       const status = fastApiResponse.status;
       logger.error('FastAPI title backend error', undefined, { status, clientId });
       return createErrorResponse('An error occurred while generating title', 'SERVICE_ERROR', 502);
     }
 
+    // IF: Backend returned success but no response body
     if (!fastApiResponse.body) {
       return createErrorResponse('Empty response from backend', 'EMPTY_RESPONSE', 502);
     }
 
-    // Return the SSE stream
+    // =================================================================
+    // BLOCK: STREAMING RESPONSE
+    // Why: We use SSE headers to allow real-time title updates in the 
+    // sidebar as the LLM summarizes the conversation.
+    // =================================================================
     return new Response(fastApiResponse.body, {
       headers: {
         'Content-Type': 'text/event-stream; charset=utf-8',
@@ -127,7 +144,9 @@ export async function POST(request: NextRequest) {
         ...createRateLimitHeaders(rateLimit.remaining, rateLimit.limit, rateLimit.resetIn),
       },
     });
+
   } catch (error: unknown) {
+    // IF: Request was cancelled by the browser
     if (error instanceof Error && error.name === 'AbortError') {
       return new Response(null, { status: 499 });
     }

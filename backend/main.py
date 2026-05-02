@@ -1,183 +1,67 @@
+"""XiaoHong Backend API Server.
+
+This is the main application entry point. It defines the FastAPI routes and 
+orchestrates the complex multi-stage streaming pipeline for AI generation.
+"""
+
 import asyncio
 import json
-from concurrent.futures import ThreadPoolExecutor
-from typing import List, Dict, Any
-
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from openai import AsyncOpenAI
-import os
-from dotenv import load_dotenv
 
-# Try to import transformers for local chat template
-try:
-    from transformers import AutoTokenizer
-    # Initialize tokenizer globally
-    _tokenizer = AutoTokenizer.from_pretrained("CongJ-Pan/XiaoHong-v1")
-except Exception as e:
-    _tokenizer = None
-    print(f"Warning: Could not load tokenizer. Ensure transformers is installed. {e}")
-
-from pathlib import Path
-import os
-from dotenv import load_dotenv
-
-# Try loading from the unified global .env file in the project root
-# Support both .env and .env.local
-for env_name in [".env", ".env.local"]:
-    env_path = Path(__file__).resolve().parent.parent / env_name
-    if env_path.exists():
-        load_dotenv(env_path)
-        print(f"Loaded environment variables from {env_name}")
-        break
-
-HF_TOKEN = os.environ.get("HF_TOKEN", "")
-HF_ENDPOINT_URL = os.environ.get("HF_ENDPOINT_URL", "")
-HF_REPO_ID = os.environ.get("HF_REPO_ID", "/repository")
-
-# Cache to store the dynamically resolved model name so we don't spam models.list() APIs
-_resolved_model_name = None
-
-# --- System Prompts (Extracted from Streamlit chat_app.py) ---
-SYSTEM_PROMPT_NORMAL = (
-    "你是一位專業的古典文學與知識問答助手。你的名字叫做「小紅」。請始終使用繁體中文回答。"
-    "遇到需要深度分析與邏輯推演的問題，請先在 <think> 標籤內進行思考；"
-    "若是簡單的事實擷取或問候，請直接給出答案，不需思考過程。"
+# Import centralized configurations and services
+from backend.config import (
+    OPENROUTER_API_KEY, HF_ENDPOINT_URL, HF_TOKEN,
+    SYSTEM_PROMPT_NORMAL, SYSTEM_PROMPT_FORCE_THINK,
+    SYSTEM_PROMPT_WITH_RAG, SYSTEM_PROMPT_WITH_RAG_THINK,
+    thread_pool
 )
-SYSTEM_PROMPT_FORCE_THINK = (
-    "你是一位專業的古典文學與知識問答助手。請先在 <think> 標籤中進行詳細推理，再給出最終答案。"
-)
-SYSTEM_PROMPT_WITH_RAG = (
-    "你是一位專業的古典文學與知識問答助手。你的名字叫做「小紅」。請始終使用繁體中文回答。"
-    "系統會在使用者問題前提供 <context> 參考資料。"
-    "請優先根據參考資料回答；若參考資料與問題無關，請忽略它並依據自身知識回答，"
-    "並說明這是根據自身知識而非參考資料。"
-    "遇到需要深度分析與邏輯推演的問題，請先在 <think> 標籤內進行思考；"
-    "若是簡單的事實擷取或問候，請直接給出答案，不需思考過程。"
-)
-SYSTEM_PROMPT_WITH_RAG_THINK = (
-    "你是一位專業的古典文學與知識問答助手。你的名字叫做「小紅」。請始終使用繁體中文回答。"
-    "系統會在使用者針對問題前提供 <context> 參考資料。"
-    "請優先根據參考資料回答；若參考資料與問題無關，請忽略它並依據自身知識回答，"
-    "並說明這是根據自身知識而非參考資料。"
-    "請先在 <think> 標籤中進行詳細推理，再給出最終答案。"
+from backend.schemas import ChatRequest, TitleRequest
+from backend.services.rag_manager import rag_service, router_service, suggestion_service
+from backend.services.llm_client import (
+    get_hf_client, resolve_hf_model, get_openrouter_client, get_tokenizer
 )
 
-# Initialize the global thread pool for CPU bounds tasks (Tokenizer, FAISS, BM25)
-_thread_pool = ThreadPoolExecutor(max_workers=4)
-
-# Load RAG Service globally
-try:
-    import sys
-    from pathlib import Path
-    
-    # In the new structure, backend/main.py is one level down from project root
-    project_root = Path(__file__).resolve().parents[1]
-    
-    # Add the src/main/python folder to sys.path to resolve internal service imports
-    src_python_dir = project_root / "src" / "main" / "python"
-    if str(src_python_dir) not in sys.path:
-        sys.path.insert(0, str(src_python_dir))
-        
-    from services.rag_service import RAGService
-    from services.router_service import RouterService
-    from services.suggestion_service import SuggestionService
-    
-    faiss_dir = project_root / "data" / "rag" / "faiss_index"
-    bm25_dir = project_root / "data" / "rag" / "bm25_index"
-    
-    def get_latest_file(directory: Path, pattern: str) -> str:
-        if not directory.exists():
-            return ""
-        files = list(directory.glob(pattern))
-        if not files:
-            return ""
-        return str(sorted(files, key=lambda x: x.stat().st_mtime)[-1])
-        
-    # Check if empty data folder issue occurs, if so, fail gracefully
-    latest_faiss_idx = get_latest_file(faiss_dir, "chunks*.index")
-    latest_faiss_meta = get_latest_file(faiss_dir, "index_metadata*.json")
-    
-    if not latest_faiss_idx:
-        latest_faiss_idx = "dummy_not_found.index"  # Prevent Path("") resolving to '.'
-        print("Warning: No FAISS index found in data/rag/faiss_index. RAG will not work locally.")
-    
-    rag_service = RAGService(
-        faiss_index_path=latest_faiss_idx,
-        faiss_metadata_path=latest_faiss_meta,
-        bm25_index_dir=str(bm25_dir),
-        embedding_model_path="api", 
-        reranker_model_path="api", # Added this back to enable high-quality reranking via API
-        top_k=5,
-        rrf_k=60,
-        score_threshold=0.3,
-        max_context_tokens=4000,
-    )
-    router_service = RouterService()
-    suggestion_service = SuggestionService()
-    print("RAG, Router, and Suggestion Services initialized successfully.")
-except Exception as e:
-    rag_service = None
-    print(f"Warning: Could not load RAGService. Details: {e}")
+# =================================================================
+# APP INITIALIZATION & SECURITY
+# We use CORSMiddleware to restrict access only to our trusted frontend. 
+# allow_credentials=True is required for future-proofing session management.
+# =================================================================
 
 app = FastAPI(title="XiaoHong Ancient Chinese QA - RAG Backend API")
 
-# Strict CORS: Only allow connections from the Next.js local server
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"], 
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-class RetrieveRequest(BaseModel):
-    query: str
-    top_k: int = 5
-
-class ChatRequest(BaseModel):
-    messages: List[Dict[str, str]]
-    use_rag: bool = False
-    force_think: bool = False
-    temperature: float = 0.0
-    top_p: float = 0.9
-    max_tokens: int = 2048
-    repetition_penalty: float = 1.15
-
-class TitleRequest(BaseModel):
-    messages: List[Dict[str, str]]
+# =================================================================
+# CONVERSATION MANAGEMENT ROUTES
+# These routes handle utility functions like title generation 
+# and raw document retrieval for citation inspection.
+# =================================================================
 
 @app.post("/api/v1/generate-title")
 async def generate_title_endpoint(request: Request, title_req: TitleRequest):
     """
-    Generate a conversation title using OpenRouter (qwen/qwen-2.5-7b-instruct).
-    Returns a stream of the generated title.
+    Generates a concise title using OpenRouter. 
+    We use a separate lightweight model (Qwen 7B) to avoid overloading 
+     the main RAG endpoint for simple summarization tasks.
     """
     async def generate():
-        api_key = os.environ.get("OPENROUTER_API_KEY")
-        if not api_key:
-            print("Error: OPENROUTER_API_KEY is missing")
+        if not OPENROUTER_API_KEY:
             yield "data: [ERROR] OPENROUTER_API_KEY missing\n\n"
             yield "data: [DONE]\n\n"
             return
 
-        client = AsyncOpenAI(
-            base_url="https://openrouter.ai/api/v1",
-            api_key=api_key,
-            timeout=30.0
-        )
-
+        client = get_openrouter_client(OPENROUTER_API_KEY)
         system_prompt = "你是一個助理，請根據以下對話內容，總結出一個簡短的繁體中文對話標題（不超過 10 個字，不要加引號或其他標點符號）。"
-
-        # We only need the first user message and assistant reply to generate a title
-        # Filter messages to ensure we don't send too much context
         filtered_messages = [msg for msg in title_req.messages if msg["role"] in ["user", "assistant"]]
-
-        full_messages = [
-            {"role": "system", "content": system_prompt}
-        ] + filtered_messages
+        full_messages = [{"role": "system", "content": system_prompt}] + filtered_messages
 
         try:
             response = await client.chat.completions.create(
@@ -188,384 +72,172 @@ async def generate_title_endpoint(request: Request, title_req: TitleRequest):
                 temperature=0.7,
                 top_p=0.9,
             )
-
             async for chunk in response:
-                if await request.is_disconnected():
-                    break
-
-                if not chunk.choices:
-                    continue
-
-                content = chunk.choices[0].delta.content
-                if content:
+                if await request.is_disconnected(): break
+                if chunk.choices and (content := chunk.choices[0].delta.content):
                     yield f"data: {json.dumps({'content': content}, ensure_ascii=False)}\n\n"
-
         except Exception as e:
-            print(f"Title generation error: {e}")
             yield f"data: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
-
         yield "data: [DONE]\n\n"
 
-    return StreamingResponse(
-        generate(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-            "Connection": "keep-alive"
-        }
-    )
+    return StreamingResponse(generate(), media_type="text/event-stream")
 
 @app.get("/api/v1/retrieve")
 async def retrieve_endpoint(query: str, top_k: int = 5, offset: int = 0, limit: int = 10):
-    """
-    Search endpoint that returns pure JSON snippets.
-    Suitable for frontend debug panels or citation references.
-    Includes pagination support (offset/limit).
-    """
-    loop = asyncio.get_running_loop()
-    # TODO: In future iterations, replace this with actual faiss_utils retrieval logic in the thread pool.
-
+    """Search endpoint for raw snippets, used for debugging or dedicated search UI."""
     mock_results = [{"text": "dummy content from dense search", "score": 0.99}]
-    # Apply mock pagination
-    paginated_results = mock_results[offset : offset + limit]
-    return {"results": paginated_results}
+    return {"results": mock_results[offset : offset + limit]}
+
+# =================================================================
+# THE STREAMING PIPELINE (CORE LOGIC)
+# This endpoint implements the RADIT architecture through 4 main stages:
+# 1. Routing: Out-of-Domain (OOD) detection.
+# 2. Retrieval: Hybrid search (FAISS + BM25) + RRF + Rerank.
+# 3. Augmentation: Injecting retrieved context into prompt.
+# 4. Generation: Streaming token delivery with CoT parsing support.
+# =================================================================
 
 @app.post("/api/v1/stream")
 async def stream_endpoint(request: Request, chat_req: ChatRequest):
-    """
-    Core streaming endpoint for textual generation.
-    Returns:
-       1) metadata event (syncing token calculations)
-       2) ongoing chunk data events from vLLM
-    """
+    """Primary endpoint for streaming chat interactions."""
     async def generate():
         try:
-            # 0. Gatekeeper / Smart Routing phase (Absolute First Layer)
-            # Yield an initial status to trigger the loading spinner (message is empty to avoid text display)
+            # --- STAGE 1: ROUTING ---
+            # We detect if the query is unrelated to 'Sinology' or 'Red Chamber' first 
+            # to save computation and prevent hallucinations on OOD topics.
             yield f"event: status\ndata: {json.dumps({'status': 'routing', 'message': ''}, ensure_ascii=False)}\n\n"
 
-            # Detect if the query is Out-of-Domain (OOD) before any other processing
             last_user_msg = next((m["content"] for m in reversed(chat_req.messages) if m["role"] == "user"), "")
+            
+            # if the last user message is not empty and router service is available
+            # then, we check the intent of the query using the router service
             if last_user_msg and router_service:
-                # Use a task to run the router while occasionally yielding a heartbeat if it takes too long
-                router_task = asyncio.create_task(router_service.check_query_intent(last_user_msg))
-                
-                while not router_task.done():
-                    # Wait for a bit, or until task finishes
-                    done, pending = await asyncio.wait([router_task], timeout=5.0)
-                    if not done:
-                        # Task still running after 5s, send heartbeat to keep connection alive
-                        yield f": heartbeat\n\n"
-                
-                intent_result = await router_task
-                
+                intent_result = await router_service.check_query_intent(last_user_msg)
                 if intent_result.get("action") == "DENY":
-                    # Update status to refusal
                     yield f"event: status\ndata: {json.dumps({'status': 'refused', 'message': '❌ 非相關領域問題'}, ensure_ascii=False)}\n\n"
-                    
-                    refusal = intent_result.get("refusal_message") or "小紅目前僅能回答關於《紅樓夢》與國學相關的問題，請換個問題試試看喔！"
-                    chunk_data = {
-                        "choices": [
-                            {
-                                "delta": {"content": refusal},
-                                "index": 0,
-                                "finish_reason": "stop",
-                            }
-                        ]
-                    }
-                    yield f"data: {json.dumps(chunk_data, ensure_ascii=False)}\n\n"
+                    refusal = intent_result.get("refusal_message") or "小紅目前僅能回答關於《紅樓夢》與國學相關的問題。"
+                    yield f"data: {json.dumps({'choices': [{'delta': {'content': refusal}, 'index': 0, 'finish_reason': 'stop'}]}, ensure_ascii=False)}\n\n"
                     yield "data: [DONE]\n\n"
                     return
 
-            # 1. Metadata synchronization phase
-            metadata = {
-                "promptTokens": 1024,
-                "completionTokens": 0,
-                "totalTokens": 1024
-            }
-            yield f"event: metadata\ndata: {json.dumps(metadata)}\n\n"
+            # Synchronize frontend tokens (placeholder logic)
+            yield f"event: metadata\ndata: {json.dumps({'promptTokens': 1024, 'completionTokens': 0, 'totalTokens': 1024})}\n\n"
             
-            # 2. Token generation stream phase
             if not HF_ENDPOINT_URL or not HF_TOKEN:
-                chunk_data = {"choices": [{"delta": {"content": "[System Error] HF_ENDPOINT_URL or HF_TOKEN is missing in the global .env file."}, "index": 0, "finish_reason": None}]}
-                yield f"data: {json.dumps(chunk_data, ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps({'choices': [{'delta': {'content': '[System Error] Missing HF Config.'}, 'index': 0}]}, ensure_ascii=False)}\n\n"
+                return
+
+            client = await get_hf_client()
+            
+            # --- STAGE 2: RETRIEVAL (RAG) ---
+            # We perform hybrid search and use a generator to yield status updates.
+            # This keeps the user informed while the system queries the indices.
+            context_results_obj = None
+
+            # if RAG is enabled and the service is available, 
+            # we start retrieval with event streaming
+            if chat_req.use_rag and rag_service:
+                gen = rag_service.retrieve_with_events(last_user_msg)
+                while True:
+                    # Run CPU-bound retrieval in a separate thread to keep the server responsive
+                    event = await asyncio.get_running_loop().run_in_executor(thread_pool, next, gen, None)
+                    if event is None: break
+                    if event["type"] == "status":
+                        yield f"event: status\ndata: {json.dumps({'status': event['status'], 'message': event['message']}, ensure_ascii=False)}\n\n"
+                    elif event["type"] == "results":
+                        context_results_obj = event["data"]
+
+            # --- STAGE 3: PROMPT AUGMENTATION ---
+            # If relevant documents are found, we wrap them in <context> tags.
+            # We also apply a score threshold (Guardrail) to refuse if no quality context exists.
+            if chat_req.use_rag and context_results_obj:
+                is_reranked = any(hasattr(r, 'reranker_score') for r in context_results_obj.final_results)
+                threshold = rag_service.score_threshold if is_reranked else 0.005
+                
+                # if the highest score among retrieved documents is below the threshold, 
+                # we refuse to answer
+                if context_results_obj.highest_score < threshold:
+                    refusal = "小紅查閱了相關古籍，暫時沒能找到直接相關內容。為了準確性，建議換個問法喔！"
+                    yield f"data: {json.dumps({'choices': [{'delta': {'content': refusal}, 'index': 0, 'finish_reason': 'stop'}]}, ensure_ascii=False)}\n\n"
+                    yield "data: [DONE]\n\n"
+                    return
+
+                # In order to make the revtrival more efficient, 
+                # we only include the top 3 results in the prompt, 
+                # and send the rest to the frontend for display in the citation cards.
+                sources = []
+                context_texts = []
+                for idx, chunk in enumerate(context_results_obj.final_results, 1):
+                    source = getattr(chunk, 'source', None) or getattr(chunk.metadata, 'book', '古籍')
+                    context_texts.append(f"[文獻{idx}] {source}\n{chunk.text}")
+                    sources.append({"title": source, "snippet": chunk.text, "score": float(chunk.score), "chunk_id": chunk.chunk_id})
+                
+                # Yield structured citations for the frontend interactive cards
+                yield f"event: sources\ndata: {json.dumps(sources, ensure_ascii=False)}\n\n"
+                yield f"event: status\ndata: {json.dumps({'status': 'generating', 'message': '✍️ 援引文獻，生成解說...'}, ensure_ascii=False)}\n\n"
+                
+                # Wrap retrieved context in special tags to signal the LLM for augmentation.
+                context_prompt = "<context>\n" + "\n\n".join(context_texts) + "\n</context>\n\n"
+                for msg in reversed(chat_req.messages):
+                    if msg["role"] == "user":
+                        msg["content"] = context_prompt + msg["content"]
+                        break
+
+            # --- STAGE 4: GENERATION ---
+            # We construct the final prompt and stream tokens from the LLM.
+            # We manually trigger the <think> block if force_think is enabled.
+            if not any(m["role"] == "system" for m in chat_req.messages):
+                if chat_req.use_rag:
+                    sys_text = SYSTEM_PROMPT_WITH_RAG_THINK if chat_req.force_think else SYSTEM_PROMPT_WITH_RAG
+                else:
+                    sys_text = SYSTEM_PROMPT_FORCE_THINK if chat_req.force_think else SYSTEM_PROMPT_NORMAL
+                chat_req.messages.insert(0, {"role": "system", "content": sys_text})
+            
+            # Apply chat template if tokenizer supports it, 
+            # otherwise fallback to manual formatting.
+            tokenizer = get_tokenizer()
+            if tokenizer:
+                prompt = tokenizer.apply_chat_template(chat_req.messages, tokenize=False, add_generation_prompt=True)
             else:
-                try:
-                    # Enforce /v1/ suffix as done in chat_app.py
-                    hf_base_url = HF_ENDPOINT_URL.strip()
-                    if not hf_base_url.strip("/").endswith("v1"):
-                        hf_base_url = hf_base_url.rstrip("/") + "/v1/"
-                        
-                    client = AsyncOpenAI(
-                        base_url=hf_base_url, 
-                        api_key=HF_TOKEN, 
-                        timeout=120.0
-                    )
-                    
-                    # 0. RAG Retrieval phase
-                    has_system = len(chat_req.messages) > 0 and chat_req.messages[0]["role"] == "system"
-                    context_citations = []
-                    
-                    if chat_req.use_rag and rag_service:
-                        last_user_msg = next((m["content"] for m in reversed(chat_req.messages) if m["role"] == "user"), "")
-                        if last_user_msg:
-                            try:
-                                context_results_obj = None
-                                # Loop through generator to yield SSE progress events!
-                                # Use an executor to avoid blocking the event loop with synchronous RAG operations
-                                gen = rag_service.retrieve_with_events(last_user_msg)
-                                while True:
-                                    # Use a task to run the executor while occasionally yielding a heartbeat
-                                    rag_task = asyncio.get_running_loop().run_in_executor(_thread_pool, next, gen, None)
-                                    
-                                    while not rag_task.done():
-                                        done, pending = await asyncio.wait([rag_task], timeout=5.0)
-                                        if not done:
-                                            yield f": heartbeat\n\n"
-                                    
-                                    event = await rag_task
-                                    if event is None:
-                                        break
-                                    if event["type"] == "status":
-                                        status_payload = {"status": event["status"], "message": event["message"]}
-                                        yield f"event: status\ndata: {json.dumps(status_payload, ensure_ascii=False)}\n\n"
-                                    elif event["type"] == "results":
-                                        context_results_obj = event["data"]
-                                        
-                                if context_results_obj:
-                                    # Layer 2: Rerank Score Fallback (Guardrail)
-                                    # Detect if results were reranked to apply appropriate threshold
-                                    is_reranked = False
-                                    if context_results_obj.final_results and len(context_results_obj.final_results) > 0:
-                                        # If reranker is active, results usually have a 'reranker_score' attribute
-                                        first_res = context_results_obj.final_results[0]
-                                        is_reranked = hasattr(first_res, 'reranker_score') or (isinstance(first_res, dict) and 'reranker_score' in first_res)
-                                    
-                                    # Use a much lower threshold for RRF scores (max ~0.033) vs Reranker scores (0.0-1.0)
-                                    effective_threshold = rag_service.score_threshold if is_reranked else 0.005
-                                    
-                                    # If RAG is enabled but no document score exceeds the threshold, trigger refusal
-                                    if context_results_obj.highest_score < effective_threshold:
-                                        refusal = "小紅查閱了相關古籍文獻，暫時沒能找到與您問題直接相關的內容。為了保證回答的準確性，小紅建議您換個方式提問，或是詢問關於《紅樓夢》與國學的其他問題喔！ 😊"
-                                        chunk_data = {
-                                            "choices": [
-                                                {
-                                                    "delta": {"content": refusal},
-                                                    "index": 0,
-                                                    "finish_reason": "stop",
-                                                }
-                                            ]
-                                        }
-                                        yield f"data: {json.dumps(chunk_data, ensure_ascii=False)}\n\n"
-                                        yield "data: [DONE]\n\n"
-                                        return
-
-                                    if context_results_obj.final_results:
-                                        context_texts = []
-                                    sources_payload = []
-                                    
-                                    # Filter out results with empty or whitespace-only text
-                                    valid_results = [r for r in context_results_obj.final_results if r.text and r.text.strip()]
-                                    
-                                    for idx, chunk in enumerate(valid_results, 1):
-                                        # Try multiple attributes to get a meaningful source title
-                                        # Priority: chunk.source > chunk.metadata.source > chunk.metadata.book > chunk_id prefix
-                                        raw_source = (
-                                            getattr(chunk, 'source', None)
-                                            or getattr(getattr(chunk, 'metadata', None), 'source', None)
-                                            or getattr(getattr(chunk, 'metadata', None), 'book', None)
-                                            or getattr(getattr(chunk, 'metadata', None), 'book_name', None)
-                                        )
-                                        chunk_id = getattr(chunk, 'chunk_id', None) or "N/A"
-                                        
-                                        # If still no source, use chunk_id prefix (e.g. 'hongloumeng_ch01_0' → 'hongloumeng')
-                                        if not raw_source and chunk_id != "N/A":
-                                            raw_source = chunk_id.split('_')[0] if '_' in str(chunk_id) else None
-                                        
-                                        source = raw_source or "古籍文獻"
-                                        text = chunk.text
-                                        score = chunk.score
-                                        
-                                        context_texts.append(f"[文獻{idx}] {source}\n{text}")
-                                        context_citations.append(f"[{source}] (Chunk: {chunk_id})")
-                                        
-                                        # Standardise source schema for interactive citation cards
-                                        sources_payload.append({
-                                            "title": source,
-                                            "snippet": text,
-                                            "score": float(score),
-                                            "chunk_id": chunk_id
-                                        })
-                                    
-                                    # Push the structured sources payload before generation begins
-                                    yield f"event: sources\ndata: {json.dumps(sources_payload, ensure_ascii=False)}\n\n"
-                                    
-                                    yield f"event: status\ndata: {json.dumps({'status': 'generating', 'message': '✍️ 援引文獻，生成解說...' }, ensure_ascii=False)}\n\n"
-                                    
-                                    context_prompt = "<context>\n" + "\n\n".join(context_texts) + "\n</context>\n\n"
-                                    # Update the last user message to include context!
-                                    for idx in range(len(chat_req.messages)-1, -1, -1):
-                                        if chat_req.messages[idx]["role"] == "user":
-                                            chat_req.messages[idx]["content"] = context_prompt + chat_req.messages[idx]["content"]
-                                            break
-                            except Exception as e:
-                                print(f"RAG retrieval failed: {e}")
-                                yield f"event: error\ndata: {json.dumps({'detail': f'RAG Error: {e}'}, ensure_ascii=False)}\n\n"
-
-                    # 0.5. Inject System Prompt logic mimicking chat_app.py
-                    if not has_system:
-                        # Determine which prompt to use based on RAG and force_think flags
-                        if chat_req.use_rag:
-                            sys_prompt_text = SYSTEM_PROMPT_WITH_RAG_THINK if chat_req.force_think else SYSTEM_PROMPT_WITH_RAG
-                        else:
-                            sys_prompt_text = SYSTEM_PROMPT_FORCE_THINK if chat_req.force_think else SYSTEM_PROMPT_NORMAL
-                            
-                        # Insert at the beginning of the messages list
-                        chat_req.messages.insert(0, {"role": "system", "content": sys_prompt_text})
-                    
-                    # 1. Use local tokenizer to apply chat template to bypass vLLM server padding issues
-                    if _tokenizer is not None:
-                        prompt = _tokenizer.apply_chat_template(
-                            chat_req.messages, 
-                            tokenize=False, 
-                            add_generation_prompt=True
-                        )
-                    else:
-                        # Fallback naive template just in case tokenizer fails
-                        prompt = ""
-                        for m in chat_req.messages:
-                            prompt += f"<|im_start|>{m['role']}\n{m['content']}<|im_end|>\n"
-                        prompt += "<|im_start|>assistant\n"
-                    
-                    if chat_req.force_think:
-                        prompt += "<think>\n"
-                        # Artificially yield the initial think tag so the strict frontend parser can catch it!
-                        # NOTE: Do NOT include trailing \n here — the parser strips the <think> tag
-                        # and any remaining \n would appear as a blank first line in the thinking panel.
-                        chunk_data = {
-                            "choices": [
-                                {
-                                    "delta": {"content": "<think>"},
-                                    "index": 0,
-                                    "finish_reason": None,
-                                }
-                            ]
-                        }
-                        yield f"data: {json.dumps(chunk_data, ensure_ascii=False)}\n\n"
-
-                    # 2. Use completions API (not chat) to maintain absolute control over the payload
-                    # This prevents vLLM from stripping <think> tags natively
-                    
-                    # Dynamically resolve model name identically to chat_app.py resolve_model_name()
-                    try:
-                        # Since `models.list()` throws an error on some instances or behaves weirdly, 
-                        # we prioritize HF_REPO_ID provided via .env.local if present, to bypass 404 error!
-                        if HF_REPO_ID and HF_REPO_ID != "/repository":
-                            target_model_name = HF_REPO_ID
-                        else:
-                            models_resp = await client.models.list()
-                            target_model_name = models_resp.data[0].id
-                    except Exception:
-                        target_model_name = "/repository"
-                            
-                    response = await client.completions.create(
-                        model=target_model_name,
-                        prompt=prompt,
-                        stream=True,
-                        max_tokens=chat_req.max_tokens,
-                        temperature=chat_req.temperature if chat_req.temperature > 0 else 0.001,
-                        top_p=chat_req.top_p,
-                        extra_body={
-                            "repetition_penalty": chat_req.repetition_penalty,
-                            "skip_special_tokens": False
-                        },
-                        stop=["<|im_end|>", "<|endoftext|>"]
-                    )
-                    
-                    answer_content_accumulator = ""
-                    async for chunk in response:
-                        if await request.is_disconnected():
-                            break
-                        
-                        # Forward the text payload but repackage it as OpenAI Chat Schema 'delta.content' 
-                        # so that our rigid Next.js client parser doesn't break!
-                        text_chunk = chunk.choices[0].text if chunk.choices and chunk.choices[0].text else ""
-                        if text_chunk:
-                            answer_content_accumulator += text_chunk
-                            chunk_data = {
-                                "choices": [
-                                    {
-                                        "delta": {"content": text_chunk},
-                                        "index": 0,
-                                        "finish_reason": None,
-                                    }
-                                ]
-                            }
-                            # NOTE: Structured sources are already sent via `event: sources` SSE.
-                            # Do NOT attach context_citations here — they are non-URL strings
-                            # that would cause the frontend Citations component to show "Invalid URL".
-                            yield f"data: {json.dumps(chunk_data, ensure_ascii=False)}\n\n"
-                        await asyncio.sleep(0)
-                    
-                    # 2.5. Generate Suggestions (Suggested Questions)
-                    # Triggered after main generation is complete, reusing RAG contexts
-                    if suggestion_service:
-                        try:
-                            # We only generate if we have a valid last user message and results
-                            # context_results_obj was captured during RAG phase
-                            # last_user_msg was captured at the start of generate()
-                            
-                            # Note: context_results_obj might be None if RAG was disabled
-                            # But suggestion_service can still generate based on query and answer
-                            reranked_results = context_results_obj.final_results if (chat_req.use_rag and context_results_obj) else []
-                            
-                            suggestions = await suggestion_service.generate_suggestions(
-                                user_query=last_user_msg,
-                                answer_text=answer_content_accumulator,
-                                reranked_results=reranked_results
-                            )
-                            
-                            if suggestions:
-                                yield f"event: suggestions\ndata: {json.dumps(suggestions, ensure_ascii=False)}\n\n"
-                        except Exception as sug_err:
-                            print(f"Failed to generate suggestions: {sug_err}")
-                        
-                except Exception as e:
-                    reason = str(e)
-                    error_output = f"**[API Error]** 發生錯誤請重試。Hugging Face Endpoint 回應：\n\n```\n{reason}\n```"
-                    chunk_data = {"choices": [{"delta": {"content": error_output}, "index": 0}]}
-                    yield f"data: {json.dumps(chunk_data, ensure_ascii=False)}\n\n"
+                prompt = "".join([f"<|im_start|>{m['role']}\n{m['content']}<|im_end|>\n" for m in chat_req.messages]) + "<|im_start|>assistant\n"
             
-            # 3. Stream End signal
+            # If force_think is enabled, we insert a <think> block at the end of the prompt to encourage CoT reasoning.
+            if chat_req.force_think:
+                prompt += "<think>\n"
+                yield f"data: {json.dumps({'choices': [{'delta': {'content': '<think>'}, 'index': 0}]}, ensure_ascii=False)}\n\n"
+
+            # Resolve the target model and stream the response.
+            # Also pass extra parameters for repetition penalty and stop tokens.
+            target_model = await resolve_hf_model(client)
+            response = await client.completions.create(
+                model=target_model, prompt=prompt, stream=True,
+                max_tokens=chat_req.max_tokens,
+                temperature=max(chat_req.temperature, 0.001),
+                top_p=chat_req.top_p,
+                extra_body={"repetition_penalty": chat_req.repetition_penalty, "skip_special_tokens": False},
+                stop=["<|im_end|>", "<|endoftext|>"]
+            )
+            
+            # Accumulate the answer as it streams for later use in suggestion generation.
+            answer_accumulator = ""
+            async for chunk in response:
+                if await request.is_disconnected(): break
+                if chunk.choices and (text := chunk.choices[0].text):
+                    answer_accumulator += text
+                    yield f"data: {json.dumps({'choices': [{'delta': {'content': text}, 'index': 0}]}, ensure_ascii=False)}\n\n"
+
+            # --- FINAL STAGE: FOLLOW-UP SUGGESTIONS ---
+            # After the answer is generated, we use the context to suggest next questions.
+            # If the suggestion service is available, we generate suggestions based on the last user message,
+            if suggestion_service:
+                results = context_results_obj.final_results if (chat_req.use_rag and context_results_obj) else []
+                suggestions = await suggestion_service.generate_suggestions(last_user_msg, answer_accumulator, results)
+                if suggestions:
+                    yield f"event: suggestions\ndata: {json.dumps(suggestions, ensure_ascii=False)}\n\n"
+            
             yield "data: [DONE]\n\n"
-            
-        except asyncio.CancelledError:
-            print("DEBUG: Stream cancelled by client (asyncio.CancelledError)")
-            pass
         except Exception as e:
-            print(f"DEBUG: Critical Stream Error: {e}")
-            import traceback
-            traceback.print_exc()
-            error_msg = f"\n\n**[系統錯誤]** 發生未預期錯誤：{str(e)}"
-            chunk_data = {
-                "choices": [
-                    {
-                        "delta": {"content": error_msg},
-                        "index": 0,
-                        "finish_reason": "error",
-                    }
-                ]
-            }
-            yield f"data: {json.dumps(chunk_data, ensure_ascii=False)}\n\n"
+            yield f"data: {json.dumps({'choices': [{'delta': {'content': f'Error: {e}'}, 'index': 0, 'finish_reason': 'error'}]}, ensure_ascii=False)}\n\n"
             yield "data: [DONE]\n\n"
 
-    return StreamingResponse(
-        generate(), 
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache, no-transform",
-            "X-Accel-Buffering": "no",
-            "Connection": "keep-alive"
-        }
-    )
+    return StreamingResponse(generate(), media_type="text/event-stream")

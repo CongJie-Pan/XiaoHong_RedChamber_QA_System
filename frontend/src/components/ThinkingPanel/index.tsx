@@ -42,6 +42,11 @@ export function ThinkingPanel({
   defaultExpanded = true,
   className,
 }: ThinkingPanelProps) {
+  // =================================================================
+  // HOOKS & LIVE STATE
+  // Why: Manage ephemeral UI state for the "Thinking" process, 
+  // including a live timer and expansion toggle.
+  // =================================================================
   const { styles, cx } = useStyles();
   const [isExpanded, setIsExpanded] = useState(() => defaultExpanded || isThinking);
   const [liveTime, setLiveTime] = useState(0);
@@ -49,7 +54,9 @@ export function ThinkingPanel({
   const startTimeRef = useRef<number | null>(null);
 
   // Track live thinking time
+  // Why: Provides real-time feedback on AI processing duration.
   // Update every 500ms instead of 100ms to reduce unnecessary re-renders
+  // while still feeling "live" to the user.
   useEffect(() => {
     if (isThinking) {
       startTimeRef.current = Date.now();
@@ -68,22 +75,35 @@ export function ThinkingPanel({
     }
   }, [isThinking]);
 
-  // Auto-expand when thinking starts — driven by prop change, no effect needed
-  // (initial value already set via useState(() => defaultExpanded || isThinking))
+  // =================================================================
+  // SIDE EFFECTS
+  // Why: Manage synchronization between AI streaming state and 
+  // UI visibility/scrolling.
+  // =================================================================
+
+  // Auto-expand when thinking starts
   useEffect(() => {
     if (isThinking) {
-      // Defer to next tick to avoid synchronous setState in effect body
+      // Why: Defer to next tick to avoid synchronous setState warnings
+      // in React 19 / ESLint when an effect body modifies state immediately.
       const id = setTimeout(() => setIsExpanded(true), 0);
       return () => clearTimeout(id);
     }
   }, [isThinking]);
 
   // Auto-scroll to bottom when content updates
+  // Why: Ensure the latest part of the thinking process (CoT) is 
+  // always visible as it streams in.
   useEffect(() => {
     if (contentRef.current && isExpanded) {
       contentRef.current.scrollTop = contentRef.current.scrollHeight;
     }
   }, [content, isExpanded]);
+
+  // =================================================================
+  // EVENT HANDLERS
+  // Why: Handle interactive actions like copying and collapsing.
+  // =================================================================
 
   const handleCopy = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -102,6 +122,7 @@ export function ThinkingPanel({
   }, []);
 
   // Handle keyboard navigation for accessibility
+  // Why: Standardize interaction for screen readers and keyboard users.
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       if (e.key === 'Enter' || e.key === ' ') {

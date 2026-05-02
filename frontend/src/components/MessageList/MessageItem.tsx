@@ -18,6 +18,13 @@ import type { CitationSource } from '@/components/Citations';
 import type { DisplayMessage } from '@/store/chat';
 import { useStyles } from './styles';
 
+// =================================================================
+// SECURITY & SANITIZATION
+// Why: LLM outputs are untrusted content. We must sanitize URLs 
+// and restrict Markdown features to prevent XSS and other 
+// injection attacks while maintaining rich text capabilities.
+// =================================================================
+
 /**
  * Safe URL protocols whitelist
  */
@@ -30,6 +37,8 @@ function isSafeUrl(url: string | undefined): boolean {
   if (!url) return false;
   try {
     const urlObj = new URL(url);
+    // IF: Protocol is in the safe whitelist
+    // Why: Block dangerous protocols like javascript: or data: (for scripts).
     return SAFE_URL_PROTOCOLS.includes(urlObj.protocol);
   } catch {
     // Relative URLs are safe
@@ -42,6 +51,8 @@ function isSafeUrl(url: string | undefined): boolean {
  */
 const createMarkdownComponents = (styles: any, cx: any, onQuoteClick: (text: string) => void): Components => ({
   // Custom blockquote for citations
+  // Why: Transform standard Markdown blockquotes into interactive elements
+  // that can trigger UI actions (like highlighting source text).
   blockquote: ({ children }) => {
     // Extract text content from children to find it in the DOM
     const extractText = (node: any): string => {
@@ -128,6 +139,9 @@ export interface MessageItemProps {
 
 /**
  * MessageItem displays a single chat message
+ * Why: We use React.memo to prevent unnecessary re-renders of 
+ * historical messages when new tokens are streaming into the 
+ * latest message item.
  */
 export const MessageItem = memo(function MessageItem({
   message,
@@ -140,6 +154,11 @@ export const MessageItem = memo(function MessageItem({
   onSelectSuggestion,
   className,
 }: MessageItemProps) {
+  // =================================================================
+  // HOOKS & ACTIONS
+  // Why: Handle interactive features like copying, editing, and 
+  // quote highlighting.
+  // =================================================================
   const { styles, cx } = useStyles();
   const { message: antMessageApi } = App.useApp();
   const isUser = message.role === 'user';

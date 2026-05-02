@@ -1,8 +1,10 @@
-/**
- * Rate Limiting Utility
- * Simple in-memory rate limiter for API endpoints
- * Uses sliding window algorithm
- */
+// =================================================================
+// RATE LIMITING UTILITY
+// Why: Implementing client-side rate limiting prevents unintended 
+// request floods, protects backend resources from excessive load, 
+// and ensures a fair distribution of resources among users. This 
+// is particularly important for expensive LLM inference calls.
+// =================================================================
 
 interface RateLimitEntry {
   count: number;
@@ -17,7 +19,11 @@ interface RateLimitConfig {
   windowMs: number;
 }
 
-/** Default rate limit: 20 requests per minute */
+/** 
+ * Default rate limit: 20 requests per minute
+ * Why: Provides a sensible default that allows for interactive 
+ * chatting while preventing rapid automated spamming.
+ */
 const DEFAULT_CONFIG: RateLimitConfig = {
   maxRequests: 20,
   windowMs: 60_000,
@@ -35,18 +41,24 @@ const CLEANUP_INTERVAL = 5 * 60 * 1000;
 let cleanupTimer: NodeJS.Timeout | null = null;
 
 function startCleanup(): void {
+  // IF: Cleanup timer is already running
+  // Why: Avoid creating redundant intervals.
   if (cleanupTimer) return;
 
   cleanupTimer = setInterval(() => {
     const now = Date.now();
     for (const [key, entry] of rateLimitStore.entries()) {
+      // IF: The rate limit window for this entry has passed
+      // Why: Free up memory by removing stale tracking data.
       if (entry.resetTime < now) {
         rateLimitStore.delete(key);
       }
     }
   }, CLEANUP_INTERVAL);
 
-  // Allow process to exit if this is the only timer
+  // IF: Environment supports unref (Node.js)
+  // Why: Ensure the cleanup timer doesn't prevent the process from 
+  // exiting in server-side environments (like Next.js API routes).
   if (cleanupTimer.unref) {
     cleanupTimer.unref();
   }
@@ -60,17 +72,24 @@ function startCleanup(): void {
  */
 export function getClientIdentifier(request: Request): string {
   const forwardedFor = request.headers.get('x-forwarded-for');
+  
+  // IF: Request went through a proxy/load balancer
+  // Why: Identify the original client IP rather than the proxy's IP.
   if (forwardedFor) {
     // Get first IP in chain (original client)
     return forwardedFor.split(',')[0].trim();
   }
 
   const realIp = request.headers.get('x-real-ip');
+  
+  // IF: Server provides the real IP header
+  // Why: Alternative way to identify the client IP.
   if (realIp) {
     return realIp;
   }
 
-  // Fallback for development/testing
+  // ELSE: No IP header found
+  // Why: Fallback for local development or unexpected network configurations.
   return 'unknown-client';
 }
 
@@ -103,7 +122,8 @@ export function checkRateLimit(
   const now = Date.now();
   const entry = rateLimitStore.get(identifier);
 
-  // If no entry or expired, create new window
+  // IF: No existing entry or the previous window has expired
+  // Why: Initialize a new rate limit window for this client.
   if (!entry || entry.resetTime < now) {
     const newEntry: RateLimitEntry = {
       count: 1,
@@ -119,7 +139,8 @@ export function checkRateLimit(
     };
   }
 
-  // Increment count
+  // ELSE: Within an active window
+  // Why: Increment the counter and check against the limit.
   entry.count += 1;
 
   const resetIn = Math.ceil((entry.resetTime - now) / 1000);
@@ -150,3 +171,4 @@ export function resetRateLimit(identifier: string): void {
 export function clearAllRateLimits(): void {
   rateLimitStore.clear();
 }
+

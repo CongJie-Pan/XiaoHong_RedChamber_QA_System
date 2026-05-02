@@ -1,9 +1,11 @@
 'use client';
 
-/**
- * ConversationList Component
- * Sidebar displaying conversation history grouped by time
- */
+// =================================================================
+// CONVERSATION LIST COMPONENT
+// Why: Provides sidebar navigation for the chat history. It handles 
+// grouping conversations by date, switching between active threads, 
+// and deleting old sessions. 
+// =================================================================
 
 import React, { useCallback, useMemo } from 'react';
 import Image from 'next/image';
@@ -38,14 +40,24 @@ export function ConversationList({
 }: ConversationListProps) {
   const { styles, cx } = useStyles();
 
+  // =================================================================
+  // STORE SELECTORS
+  // =================================================================
   const conversations = useConversationStore((state) => state.conversations);
   const activeId = useConversationStore((state) => state.activeConversationId);
   const isLoading = useConversationStore((state) => state.isLoading);
   const streamingTitles = useConversationStore((state) => state.streamingTitles);
 
+  // =================================================================
+  // EVENT HANDLERS
+  // =================================================================
+
+  /**
+   * Resets the UI for a new conversation state
+   * Why: Leverages lazy creation; the conversation record is only created 
+   * in the DB after the first message is sent.
+   */
   const handleNew = useCallback(async () => {
-    // We don't create a conversation in DB yet (Lazy creation)
-    // Just trigger the callback to reset the UI
     onNew?.();
   }, [onNew]);
 
@@ -59,6 +71,7 @@ export function ConversationList({
 
   const handleDelete = useCallback(
     async (id: string, e: React.MouseEvent) => {
+      // Logic: Stop propagation to prevent selecting the conversation while deleting it
       e.stopPropagation();
       await deleteConversationService(id);
       onDelete?.(id);
@@ -66,15 +79,22 @@ export function ConversationList({
     [onDelete]
   );
 
+  // =================================================================
+  // MEMOIZED LOGIC
+  // Why: Avoid re-sorting the list on every render unless conversations change.
+  // =================================================================
+
   /**
-   * Group conversations by date
+   * Group conversations by date (Today, Yesterday, Last 7 Days, Older)
+   * Why: Helps users find recent work quickly and provides cognitive 
+   * organization to long chat histories.
    */
   const groupedConversations = useMemo(() => {
     const groups: { [key: string]: typeof conversations } = {
-      今天: [],
-      昨天: [],
-      過去七天: [],
-      更早以前: [],
+      '今天': [],
+      '昨天': [],
+      '過去七天': [],
+      '更早以前': [],
     };
 
     const now = new Date();
@@ -85,18 +105,27 @@ export function ConversationList({
       date.setHours(0, 0, 0, 0);
       const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
 
+      // IF: Updated today
       if (diffDays === 0) groups['今天'].push(conv);
+      // ELSE IF: Updated yesterday
       else if (diffDays === 1) groups['昨天'].push(conv);
+      // ELSE IF: Updated within the last week
       else if (diffDays < 7) groups['過去七天'].push(conv);
+      // DEFAULT: Older records
       else groups['更早以前'].push(conv);
     });
 
+    // FILTER: Remove empty groups from display
     return Object.entries(groups).filter(([, items]) => items.length > 0);
   }, [conversations]);
 
+  // =================================================================
+  // RENDERING
+  // =================================================================
+
   return (
     <div className={cx(styles.container, className)}>
-      {/* Logo & Toggle Area */}
+      {/* BRANDING AREA */}
       <div className={styles.logoContainer}>
         <div className={styles.logoWrapper}>
           <Image 
@@ -117,7 +146,7 @@ export function ConversationList({
         </button>
       </div>
 
-      {/* Action Area */}
+      {/* CREATE NEW CONVERSATION BUTTON */}
       <div className={styles.header}>
         <button className={styles.newButton} onClick={handleNew}>
           <Plus size={18} />
@@ -125,18 +154,21 @@ export function ConversationList({
         </button>
       </div>
 
-      {/* List Area */}
+      {/* SCROLLABLE CONVERSATION LIST */}
       <div className={styles.list}>
+        {/* TERNARY: Loading State */}
         {isLoading ? (
           <div className={styles.loading}>
             <Spin size="small" />
           </div>
         ) : conversations.length === 0 ? (
+          // ELSE IF: Empty State
           <div className={styles.empty}>
             <MessagesSquare size={32} className={styles.emptyIcon} />
             <p className={styles.emptyText}>尚無對話紀錄</p>
           </div>
         ) : (
+          // ELSE: Render grouped items
           groupedConversations.map(([group, items]) => (
             <React.Fragment key={group}>
               <div className={styles.groupTitle}>{group}</div>
@@ -152,6 +184,7 @@ export function ConversationList({
                   <MessageSquare size={16} className={styles.itemIcon} />
                   <div className={styles.itemContent}>
                     <span className={cx(styles.itemTitle, 'conv-title')}>
+                      {/* TERNARY: Show real-time title generation if active */}
                       {streamingTitles[conv.id] !== undefined ? (
                         <>
                           {streamingTitles[conv.id]}

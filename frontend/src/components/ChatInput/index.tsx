@@ -47,6 +47,12 @@ export function ChatInput({
   isStreaming = false,
   onStop,
 }: ChatInputProps) {
+  // =================================================================
+  // HOOKS & STATE MANAGEMENT
+  // Why: We use a combination of local state for typing performance
+  // and global Zustand stores for cross-component feature toggles
+  // (RAG, Thinking mode) and contextual data (Quoted text).
+  // =================================================================
   const { styles, cx } = useStyles();
   const [value, setValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -66,7 +72,15 @@ export function ChatInput({
   const isNearLimit = charCount > maxLength * WARNING_THRESHOLD;
   const isOverLimit = charCount > maxLength;
 
+  // =================================================================
+  // SIDE EFFECTS
+  // Why: Manage UI synchronization, including textarea auto-sizing,
+  // focus management, and state cleanup on navigation.
+  // =================================================================
+
   // Auto-resize textarea
+  // Why: Provides a modern, "growing" input experience that adapts
+  // to content length without requiring manual scrollbar management.
   useEffect(() => {
     const textarea = textareaRef.current;
     if (textarea) {
@@ -76,6 +90,8 @@ export function ChatInput({
   }, [value]);
 
   // Focus textarea when quotedText changes
+  // Why: When a user selects text for citation, we assume they
+  // want to start typing their query immediately.
   useEffect(() => {
     if (quotedText && textareaRef.current) {
       textareaRef.current.focus();
@@ -83,6 +99,8 @@ export function ChatInput({
   }, [quotedText]);
 
   // Focus textarea on mount
+  // Why: Standard chat UX; the user should be ready to type 
+  // as soon as the component is available.
   useEffect(() => {
     if (textareaRef.current && !disabled) {
       textareaRef.current.focus();
@@ -90,28 +108,40 @@ export function ChatInput({
   }, [disabled]);
 
   // Clear input when conversation changes
+  // Why: Prevents accidental message leakage between different
+  // conversation contexts.
   useEffect(() => {
     setValue('');
     setQuotedText(null);
   }, [activeConversationId, setQuotedText]);
 
+  // =================================================================
+  // EVENT HANDLERS
+  // Why: Handle message submission, validation, and keyboard shortcuts.
+  // =================================================================
+
   const handleSend = useCallback(() => {
     const trimmedValue = value.trim();
 
-    // Validation checks
+    // IF: Input is empty and no quoted text
+    // Why: Prevents sending accidental empty messages.
     if (!trimmedValue && !quotedText) {
       return;
     }
 
     if (disabled) return;
 
-    // Check message length
+    // IF: Message exceeds character limit
+    // Why: LLM context windows and system performance require
+    // reasonable input bounds.
     if (trimmedValue.length > maxLength) {
       message.error(`訊息過長。上限為 ${maxLength} 個字元。`);
       return;
     }
 
     // Construct final message with quote if exists
+    // Why: We use Markdown blockquote syntax (">") to clearly
+    // distinguish the referenced text from the user's new query.
     let finalMessage = trimmedValue;
     if (quotedText) {
       const formattedQuote = quotedText
@@ -138,7 +168,9 @@ export function ChatInput({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      // Enter to send, Shift+Enter for new line
+      // IF: Enter key pressed without Shift
+      // Why: Common UX pattern where Enter sends and Shift+Enter
+      // creates a newline, balancing speed with multi-line capability.
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         handleSend();
@@ -155,6 +187,7 @@ export function ChatInput({
   );
 
   const canSend = value.trim().length > 0 && !disabled && !isOverLimit;
+
 
   return (
     <div className={cx(styles.container, className)}>

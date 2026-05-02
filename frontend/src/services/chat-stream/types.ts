@@ -1,11 +1,16 @@
-/**
- * Chat Stream API Type Definitions
- * Defines all types for API requests and responses
- */
+// =================================================================
+// CHAT STREAM API TYPE DEFINITIONS
+// Why: Defines the shape of the interface between the frontend 
+// and the FastAPI/LLM backend. These types strictly follow the 
+// OpenAI/Perplexity-compatible streaming protocol while adding 
+// custom extensions for RAG metadata and thinking traces.
+// =================================================================
+
+import type { CitationSource } from '@/components/Citations';
+
 /**
  * Message role types
  */
-import type { CitationSource } from '@/components/Citations';
 export type MessageRole = 'user' | 'assistant' | 'system';
 
 /**
@@ -20,7 +25,7 @@ export interface ChatMessage {
  * Chat Stream API request body
  */
 export interface ChatStreamRequest {
-  /** Model to use - 'sonar-reasoning' for reasoning with thinking */
+  /** Model to use */
   model: 'sonar-reasoning' | 'sonar' | 'sonar-pro';
   /** Array of messages in the conversation */
   messages: ChatMessage[];
@@ -39,7 +44,7 @@ export interface ChatStreamRequest {
 }
 
 /**
- * Search result from Perplexity
+ * Search result from retrieval engine
  */
 export interface SearchResult {
   /** Title of the source */
@@ -52,6 +57,7 @@ export interface SearchResult {
 
 /**
  * Token usage information
+ * Why: Allows the frontend to track and display costs/usage metrics.
  */
 export interface UsageInfo {
   /** Tokens used in the prompt */
@@ -60,8 +66,6 @@ export interface UsageInfo {
   completion_tokens: number;
   /** Total tokens used */
   total_tokens: number;
-  /** Search context size used */
-  search_context_size?: 'low' | 'medium' | 'high';
 }
 
 /**
@@ -130,7 +134,9 @@ export interface ChatStreamStreamChunk {
 }
 
 /**
- * Parsed chunk types from ThinkTagParser
+ * Parsed chunk types from the streaming parser
+ * Why: Defines the logical states that the frontend UI must handle 
+ * during a complex, multi-modal LLM response.
  */
 export type ParsedChunkType =
   | 'thinking_start'
@@ -149,6 +155,8 @@ export interface ParsedChunk {
 
 /**
  * Callbacks for streaming chat responses
+ * Why: Decouples the low-level network/parsing logic from the 
+ * high-level state management in the Chat Service.
  */
 export interface StreamCallbacks {
   /** Called when <think> tag starts */
@@ -166,9 +174,10 @@ export interface StreamCallbacks {
   /** Called on error */
   onError: (error: Error) => void;
   /** Called when RAG pipeline status changes */
-  onStatus?: (status: 'idle' | 'retrieving' | 'searching_dense' | 'searching_sparse' | 'reranking' | 'sources_ready' | 'generating' | 'done', message: string) => void;
+  onStatus?: (status: 'idle' | 'routing' | 'retrieving' | 'searching_dense' | 'searching_sparse' | 'reranking' | 'sources_ready' | 'generating' | 'done', message: string) => void;
   /** Called when structured sources payload is pushed */
   onSources?: (sources: CitationSource[]) => void;
   /** Called when suggested follow-up questions are received */
   onSuggestions?: (suggestions: string[]) => void;
 }
+

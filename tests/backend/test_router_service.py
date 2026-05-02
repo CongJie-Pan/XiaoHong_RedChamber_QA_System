@@ -1,11 +1,11 @@
 import pytest
 from unittest.mock import AsyncMock, patch
-from src.main.python.services.router_service import RouterService
+from backend.services.router_service import RouterService
 
 @pytest.mark.asyncio
 async def test_router_service_allow():
     # Mock the AsyncOpenAI client
-    with patch('src.main.python.services.router_service.AsyncOpenAI') as mock_openai:
+    with patch('backend.services.router_service.AsyncOpenAI') as mock_openai:
         mock_client = mock_openai.return_value
         mock_client.chat.completions.create = AsyncMock()
         
@@ -25,7 +25,7 @@ async def test_router_service_allow():
 @pytest.mark.asyncio
 async def test_router_service_deny():
     # Mock the AsyncOpenAI client
-    with patch('src.main.python.services.router_service.AsyncOpenAI') as mock_openai:
+    with patch('backend.services.router_service.AsyncOpenAI') as mock_openai:
         mock_client = mock_openai.return_value
         mock_client.chat.completions.create = AsyncMock()
         
@@ -46,7 +46,7 @@ async def test_router_service_deny():
 @pytest.mark.asyncio
 async def test_router_service_fail_safe():
     # Test that the service fails safe (ALLOWs) when an error occurs
-    with patch('src.main.python.services.router_service.AsyncOpenAI') as mock_openai:
+    with patch('backend.services.router_service.AsyncOpenAI') as mock_openai:
         mock_client = mock_openai.return_value
         mock_client.chat.completions.create = AsyncMock(side_effect=Exception("API Error"))
         
@@ -58,7 +58,7 @@ async def test_router_service_fail_safe():
 @pytest.mark.asyncio
 async def test_router_service_reasoning_content():
     # Test fallback to reasoning_content (DeepInfra behavior)
-    with patch('src.main.python.services.router_service.AsyncOpenAI') as mock_openai:
+    with patch('backend.services.router_service.AsyncOpenAI') as mock_openai:
         mock_client = mock_openai.return_value
         mock_client.chat.completions.create = AsyncMock()
         

@@ -1,10 +1,11 @@
-/**
- * Chat Store
- * Zustand store for managing chat state and streaming
- *
- * Note: All state updates use atomic operations to prevent race conditions
- * when multiple chunks arrive in rapid succession during streaming.
- */
+// =================================================================
+// CHAT ZUSTAND STORE
+// Why: Centralizes the management of chat interactions, specifically 
+// optimizing for the high-frequency state updates required by 
+// streaming responses. By using Zustand, we achieve low-latency 
+// updates and precise control over component re-renders during the 
+// critical LLM response phase.
+// =================================================================
 
 import { create } from 'zustand';
 import { generateUUID } from '@/utils/id';
@@ -35,16 +36,16 @@ const initialState = {
 
 /**
  * Chat store for managing conversation messages and streaming state
- *
- * Design decisions:
- * - All streaming updates use atomic set() with function to avoid race conditions
- * - State is updated in-place with the streaming message to enable real-time UI updates
- * - Thinking state tracks both content and timing for duration display
  */
 export const useChatStore = create<ChatStore>((set) => ({
   ...initialState,
 
-  // Message operations
+  // =================================================================
+  // MESSAGE OPERATIONS
+  // Why: Basic CRUD operations for messages. These updates trigger 
+  // the MessageList component to re-render.
+  // =================================================================
+  
   addUserMessage: (content: string, conversationId: string) => {
     const id = generateUUID();
     const message: DisplayMessage = {
@@ -110,7 +111,14 @@ export const useChatStore = create<ChatStore>((set) => ({
     }));
   },
 
-  // Streaming processing
+  // =================================================================
+  // STREAMING LIFECYCLE MANAGEMENT
+  // Why: Orchestrates the transition between different streaming 
+  // phases (RAG retrieval -> Thinking -> Answering -> Done). 
+  // Uses atomic state updates to prevent race conditions when chunks 
+  // arrive in rapid succession.
+  // =================================================================
+
   startStreaming: (messageId: string) => {
     set({
       isStreaming: true,
@@ -130,11 +138,12 @@ export const useChatStore = create<ChatStore>((set) => ({
 
   /**
    * Append thinking content during streaming
-   * Uses atomic update to prevent race conditions with rapid chunk arrivals
    */
   appendThinkingContent: (content: string) => {
     set((state) => {
-      // If this is the first thinking content, record start time
+      // IF: This is the first chunk of thinking content
+      // Why: Record the start time to calculate the total duration 
+      // of the thinking phase for the user.
       const thinkingStartTime = state.thinkingStartTime ?? Date.now();
 
       return {
@@ -147,7 +156,6 @@ export const useChatStore = create<ChatStore>((set) => ({
 
   /**
    * End thinking phase and update the message with reasoning content
-   * Uses atomic update to ensure consistent state
    */
   endThinking: () => {
     set((state) => {
@@ -155,7 +163,9 @@ export const useChatStore = create<ChatStore>((set) => ({
         ? Date.now() - state.thinkingStartTime
         : undefined;
 
-      // If we have a streaming message, update it with thinking content
+      // IF: We have an active streaming message ID
+      // Why: Ensure the accumulated thinking content is persisted 
+      // to the specific message object for history retrieval.
       if (state.currentStreamingId) {
         return {
           messages: state.messages.map((msg) =>
@@ -179,13 +189,14 @@ export const useChatStore = create<ChatStore>((set) => ({
 
   /**
    * Append content during streaming
-   * Uses single atomic update to prevent race conditions
    */
   appendContent: (content: string) => {
     set((state) => {
       const newContent = state.currentContent + content;
 
-      // Update both the local tracking and the message in a single atomic operation
+      // Why: Update both the 'currentContent' tracker (for the stream parser) 
+      // and the specific message object (for UI rendering) in a single 
+      // atomic operation to maintain synchronization.
       return {
         currentContent: newContent,
         messages: state.currentStreamingId
@@ -204,7 +215,10 @@ export const useChatStore = create<ChatStore>((set) => ({
    */
   endStreaming: () => {
     set((state) => {
-      // Finalize the streaming message if we have one
+      // IF: We are finishing an active stream
+      // Why: Finalize all ephemeral state (isStreaming, currentStreamingId) 
+      // and ensure all RAG sources and citations are permanently 
+      // attached to the message object in the messages array.
       if (state.currentStreamingId) {
         return {
           messages: state.messages.map((msg) =>
@@ -216,8 +230,6 @@ export const useChatStore = create<ChatStore>((set) => ({
                     state.currentCitations.length > 0
                       ? state.currentCitations
                       : undefined,
-                  // Persist structured RAG sources onto the message so the
-                  // Citations panel survives after streaming ends
                   sources:
                     state.ragSources.length > 0
                       ? state.ragSources
@@ -228,7 +240,6 @@ export const useChatStore = create<ChatStore>((set) => ({
           ),
           isStreaming: false,
           currentStreamingId: null,
-          // Reset RAG transient state after persisting to message
           ragStatus: 'idle' as const,
           ragMessage: '',
           ragSources: [],
@@ -242,10 +253,10 @@ export const useChatStore = create<ChatStore>((set) => ({
     });
   },
 
-  /**
-   * Set citations for the current message
-   * Uses atomic update to keep state consistent
-   */
+  // =================================================================
+  // METADATA & UI UTILITY ACTIONS
+  // =================================================================
+
   setCitations: (citations: string[]) => {
     set((state) => ({
       currentCitations: citations,
@@ -257,24 +268,18 @@ export const useChatStore = create<ChatStore>((set) => ({
     }));
   },
 
-  /**
-   * Set text to be quoted in next message
-   */
   setQuotedText: (text: string | null) => {
     set({ quotedText: text });
   },
 
-  // Error handling
   setError: (error: Error | null) => {
     set({ error, isStreaming: false });
   },
 
-  // Metadata
   setTokenUsage: (usage) => {
     set({ tokenUsage: usage });
   },
 
-  // Reset
   restoreStreamingState: (partialState) => {
     set((state) => ({ ...state, ...partialState }));
   },
@@ -296,14 +301,19 @@ export const useChatStore = create<ChatStore>((set) => ({
     });
   },
 
-  // Toggles
+  // =================================================================
+  // MODE TOGGLES & RAG FEEDBACK
+  // Why: Controls the active capabilities of the system and provides 
+  // real-time feedback during the pre-generation retrieval phase.
+  // =================================================================
+  
   toggleRag: () => set((state) => ({ useRag: !state.useRag })),
   toggleThink: () => set((state) => ({ forceThink: !state.forceThink })),
 
-  // RAG Visualization
   setRagStatus: (status, message) => set({ 
     ragStatus: status, 
     ...(message !== undefined ? { ragMessage: message } : {}) 
   }),
   setRagSources: (sources) => set({ ragSources: sources }),
 }));
+

@@ -1,3 +1,11 @@
+// =================================================================
+// MESSAGE SANITIZATION UTILITIES
+// Why: Ensuring that messages sent to the backend API are clean and 
+// optimized. Specifically, removing internal reasoning traces 
+// (<think> blocks) reduces token consumption and prevents the model 
+// from being confused by its own previous thought processes.
+// =================================================================
+
 export type Message = {
   role: 'user' | 'assistant' | 'system';
   content: string;
@@ -13,14 +21,19 @@ export function sanitizeMessagesForAPI(messages: Message[]): Message[] {
   return messages.map(msg => {
     let content = msg.content;
 
-    // Remove complete <think>...</think> blocks (non-greedy, handles multiline)
+    // IF: Content contains complete <think>...</think> blocks
+    // Why: Remove the internal CoT (Chain of Thought) reasoning that 
+    // should not be re-processed by the model in subsequent turns.
     content = content.replace(/<think>[\s\S]*?<\/think>/g, '');
 
-    // Match unclosed think block at the end
+    // IF: Content contains an unclosed <think> block at the end
+    // Why: Handle edge cases where the stream was interrupted during 
+    // the thinking phase.
     content = content.replace(/<think>[\s\S]*$/, '');
 
-    // Collapse multiple consecutive spaces/tabs into a single space
-    // (prevents double gaps when two adjacent blocks are removed)
+    // IF: Multiple consecutive spaces/tabs exist
+    // Why: Collapse spaces to ensure clean formatting after tag removal, 
+    // keeping the prompt concise.
     content = content.replace(/[ \t]{2,}/g, ' ');
 
     return {
@@ -29,3 +42,4 @@ export function sanitizeMessagesForAPI(messages: Message[]): Message[] {
     };
   });
 }
+

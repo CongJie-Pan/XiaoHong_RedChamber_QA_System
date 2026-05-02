@@ -1,9 +1,13 @@
 'use client';
 
-/**
- * ChatContainer Component
- * Main container that assembles the complete chat interface
- */
+// =================================================================
+// CHAT CONTAINER COMPONENT
+// Why: This component serves as the layout root for the chat 
+// interface. It orchestrates the sidebar (ConversationList), the 
+// message stream (MessageList), and user input (ChatInput). It also 
+// manages the high-level application state related to chat 
+// interactions and error handling.
+// =================================================================
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { Menu, X, AlertCircle } from 'lucide-react';
@@ -17,13 +21,22 @@ import { ChatInput } from '@/components/ChatInput';
 import { TextSelectionToolbar } from '@/components/TextSelectionToolbar';
 import { useStyles } from './styles';
 
+// =================================================================
+// UTILS & TYPES
+// Why: Logic for error classification and component props definition.
+// =================================================================
+
 /**
  * Error type classification for user-friendly messages
+ * Why: Converts raw technical errors into human-readable Traditional Chinese
+ * instructions while determining if a retry action is safe/possible.
  */
 function getErrorMessage(error: unknown): { message: string; isRetryable: boolean } {
   const errorMessage = error instanceof Error ? error.message : String(error);
   const lowerMessage = errorMessage.toLowerCase();
 
+  // IF: Network-related failures
+  // Why: These are usually transient and worth retrying.
   if (lowerMessage.includes('network') || lowerMessage.includes('fetch') || lowerMessage.includes('connection')) {
     return {
       message: '網路連線錯誤。請確認您的網路狀況後再試一次。',
@@ -31,6 +44,8 @@ function getErrorMessage(error: unknown): { message: string; isRetryable: boolea
     };
   }
 
+  // IF: API Rate limiting (HTTP 429)
+  // Why: Users should be informed to wait rather than flooding the server.
   if (lowerMessage.includes('rate limit') || lowerMessage.includes('429')) {
     return {
       message: '請求太頻繁。請稍候再試。',
@@ -38,6 +53,8 @@ function getErrorMessage(error: unknown): { message: string; isRetryable: boolea
     };
   }
 
+  // IF: Authentication issues (HTTP 401/403)
+  // Why: Retrying won't help if credentials are wrong; requires configuration change.
   if (lowerMessage.includes('unauthorized') || lowerMessage.includes('401') || lowerMessage.includes('api key')) {
     return {
       message: '驗證失敗。請檢查您的 API 密鑰設定。',
@@ -45,6 +62,8 @@ function getErrorMessage(error: unknown): { message: string; isRetryable: boolea
     };
   }
 
+  // IF: Request timeout
+  // Why: LLM processing can be slow; retry might hit a faster node.
   if (lowerMessage.includes('timeout')) {
     return {
       message: '請求超時。請再試一次。',
@@ -52,6 +71,8 @@ function getErrorMessage(error: unknown): { message: string; isRetryable: boolea
     };
   }
 
+  // DEFAULT: Generic fallback
+  // Why: Ensure we always provide some feedback even for unexpected errors.
   return {
     message: `發送訊息失敗：${errorMessage}`,
     isRetryable: true,
@@ -63,19 +84,31 @@ export interface ChatContainerProps {
   className?: string;
 }
 
+// =================================================================
+// MAIN COMPONENT EXPORT
+// =================================================================
+
 /**
  * ChatContainer is the main component that assembles the chat interface
  */
 export function ChatContainer({ className }: ChatContainerProps) {
   const { styles, cx } = useStyles();
   const { message: antMessageApi } = App.useApp();
+  
+  // STATE: Controls mobile sidebar visibility
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Get state from stores
+  // =================================================================
+  // STORE SELECTORS
+  // Why: Accessing global state via Zustand hooks for reactive updates.
+  // =================================================================
   const isStreaming = useChatStore((state) => state.isStreaming);
   const error = useChatStore((state) => state.error);
   const setError = useChatStore((state) => state.setError);
   const messages = useChatStore(chatSelectors.displayMessages);
+  
+  // LOGIC: Check if conversation is empty
+  // Why: Used to switch layout between landing view and active chat view.
   const isEmpty = messages.length === 0;
 
   const activeConversation = useConversationStore((state) =>
@@ -85,25 +118,35 @@ export function ChatContainer({ className }: ChatContainerProps) {
     (state) => state.activeConversationId
   );
 
-  // Initialize on mount
+  // =================================================================
+  // LIFECYCLE EFFECTS
+  // =================================================================
+
+  // EFFECT: Component Initialization
+  // Why: Setup necessary background services on application start.
   useEffect(() => {
     initializeChatService();
   }, []);
 
-  // Load messages when conversation changes
+  // EFFECT: Conversation Selection Sync
+  // Why: Ensures UI state (messages, streaming) is reset when changing contexts.
   useEffect(() => {
+    // IF: No conversation is selected
+    // Why: Prevent showing orphaned messages when the user clears their selection.
     if (!activeConversationId) {
-      // Clear messages when no conversation is active
       useChatStore.getState().clearMessages();
       useChatStore.getState().resetStreamingState();
     }
-    // Note: We don't call loadMessages(activeConversationId) here because
-    // it's already handled by switchConversation() and sendMessage()
-    // calls. Calling it here causes a race condition that clears
-    // the streaming state for new conversations.
   }, [activeConversationId]);
 
-  // Handle sending message with improved error handling
+  // =================================================================
+  // EVENT HANDLERS
+  // =================================================================
+
+  /**
+   * Sends a message and handles error notifications with retry logic
+   * Why: Critical path for user interaction; requires robust error recovery.
+   */
   const handleSend = useCallback(
     async function retryableSend(content: string) {
       try {
@@ -111,10 +154,10 @@ export function ChatContainer({ className }: ChatContainerProps) {
       } catch (err) {
         console.error('Failed to send message:', err);
 
-        // Get user-friendly error message
         const { message: errorMsg, isRetryable } = getErrorMessage(err);
 
-        // Show appropriate notification
+        // IF: The error allows for a retry
+        // Why: Provide an inline button in the toast notification to resend immediately.
         if (isRetryable) {
           antMessageApi.error({
             content: (
@@ -123,7 +166,7 @@ export function ChatContainer({ className }: ChatContainerProps) {
                 <button
                   onClick={() => {
                     antMessageApi.destroy('send-error');
-                    retryableSend(content); // Retry with same content
+                    retryableSend(content); 
                   }}
                   style={{
                     marginLeft: '12px',
@@ -143,6 +186,8 @@ export function ChatContainer({ className }: ChatContainerProps) {
             key: 'send-error',
           });
         } else {
+          // ELSE: Non-retryable error
+          // Why: Just show the error without offering a useless retry action.
           antMessageApi.error({
             content: errorMsg,
             duration: 5,
@@ -154,41 +199,42 @@ export function ChatContainer({ className }: ChatContainerProps) {
     [activeConversationId, antMessageApi]
   );
 
-  // Handle conversation selection
+  // HANDLER: Close sidebar on selection (Mobile)
+  // Why: Improve UX by maximizing chat space after selecting a thread.
   const handleConversationSelect = useCallback(() => {
     setSidebarOpen(false);
   }, []);
 
-  // Handle new conversation
+  // HANDLER: Reset UI for a fresh conversation
+  // Why: Clear previous context to prevent state leakage between sessions.
   const handleNewConversation = useCallback(() => {
-    // Just clear UI state and deselect active conversation
     useConversationStore.getState().clearActiveConversation();
     useChatStore.getState().clearMessages();
     useChatStore.getState().resetStreamingState();
     setSidebarOpen(false);
   }, []);
 
-  // Toggle sidebar
+  // HANDLER: Sidebar Toggle
   const toggleSidebar = useCallback(() => {
     setSidebarOpen((prev) => !prev);
   }, []);
 
-  // Close sidebar
   const closeSidebar = useCallback(() => {
     setSidebarOpen(false);
   }, []);
 
-  // Dismiss error
   const dismissError = useCallback(() => {
     setError(null);
   }, [setError]);
 
-  // Handle stop streaming
+  // HANDLER: Stop active LLM stream
+  // Why: Allows user to interrupt long or undesired generation.
   const handleStop = useCallback(async () => {
     await cancelCurrentStream();
   }, []);
 
-  // Handle regenerate message
+  // HANDLER: Regenerate LLM response
+  // Why: Standard AI feature to get an alternative response to the same prompt.
   const handleRegenerate = useCallback(async (messageId: string) => {
     try {
       await regenerateMessage(messageId);
@@ -198,7 +244,8 @@ export function ChatContainer({ className }: ChatContainerProps) {
     }
   }, [antMessageApi]);
 
-  // Handle edit user message
+  // HANDLER: Edit previous user message
+  // Why: Correction of typos or prompts; usually triggers new generation.
   const handleEdit = useCallback(async (messageId: string, newContent: string) => {
     try {
       await editUserMessage(messageId, newContent);
@@ -208,14 +255,21 @@ export function ChatContainer({ className }: ChatContainerProps) {
     }
   }, [antMessageApi]);
 
+  // =================================================================
+  // RENDERING
+  // =================================================================
+
   return (
     <div className={cx(styles.container, className)}>
-      {/* Sidebar Overlay (mobile) */}
+      {/* 
+          IF: sidebarOpen (Mobile Overlay)
+          Why: Prevents interaction with chat while sidebar is covering it on small screens.
+      */}
       {sidebarOpen && (
         <div className={styles.sidebarOverlay} onClick={closeSidebar} />
       )}
 
-      {/* Sidebar */}
+      {/* SIDEBAR NAVIGATION */}
       <div className={cx(styles.sidebar, sidebarOpen && styles.sidebarOpen)}>
         <ConversationList
           onSelect={handleConversationSelect}
@@ -224,9 +278,9 @@ export function ChatContainer({ className }: ChatContainerProps) {
         />
       </div>
 
-      {/* Main Content */}
+      {/* MAIN CHAT INTERFACE */}
       <div className={styles.main}>
-        {/* Header */}
+        {/* HEADER */}
         <div className={styles.header}>
           <div className={styles.headerLeft}>
             <button
@@ -237,12 +291,16 @@ export function ChatContainer({ className }: ChatContainerProps) {
               <Menu size={20} />
             </button>
             <h1 className={styles.headerTitle}>
+              {/* TERNARY: Display conversation title if it exists */}
               {activeConversation?.title || ''}
             </h1>
           </div>
         </div>
 
-        {/* Error Banner */}
+        {/* 
+            IF: error (Banner)
+            Why: Critical system alerts (e.g., disconnected services) must be prominently displayed.
+        */}
         {error && (
           <div className={styles.errorBanner}>
             <AlertCircle size={16} />
@@ -255,9 +313,9 @@ export function ChatContainer({ className }: ChatContainerProps) {
           </div>
         )}
 
-        {/* Content Area */}
+        {/* CHAT CONTENT AREA */}
         <div className={cx(styles.content, isEmpty && styles.contentEmpty)}>
-          {/* Message List */}
+          {/* SCROLLABLE MESSAGE LIST */}
           <div className={styles.messageArea}>
             <MessageList 
               onRegenerate={handleRegenerate} 
@@ -266,11 +324,12 @@ export function ChatContainer({ className }: ChatContainerProps) {
             />
           </div>
 
-          {/* Chat Input */}
+          {/* PERSISTENT INPUT BAR */}
           <div className={styles.inputArea}>
             <ChatInput
               onSend={handleSend}
               disabled={isStreaming}
+              // TERNARY: Update placeholder based on system state
               placeholder={
                 isStreaming
                   ? '正在努力思考...'
@@ -283,7 +342,7 @@ export function ChatContainer({ className }: ChatContainerProps) {
         </div>
       </div>
 
-      {/* Text Selection Toolbar */}
+      {/* FLOATING TEXT SELECTION TOOLBAR */}
       <TextSelectionToolbar />
     </div>
   );

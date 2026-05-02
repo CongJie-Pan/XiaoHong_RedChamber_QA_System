@@ -1,7 +1,9 @@
-/**
- * Utils Module
- * Central export for all utility functions
- */
+// =================================================================
+// UTILITIES BARREL MODULE
+// Why: Provides a single entry point for all shared logic across the 
+// frontend application. This barrel pattern simplifies imports and 
+// establishes a clear boundary for reusable logic.
+// =================================================================
 
 export { generateUUID } from './id';
 export {
@@ -21,3 +23,4 @@ export {
   type RateLimitResult,
 } from './rateLimit';
 export { logger } from './logger';
+

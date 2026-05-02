@@ -30,6 +30,12 @@ export interface MessageListProps {
  * MessageList displays all messages in the current conversation
  */
 export function MessageList({ className, onRegenerate, onEdit, onSelectSuggestion }: MessageListProps) {
+  // =================================================================
+  // HOOKS & STATE MANAGEMENT
+  // Why: Manage scrolling behavior and retrieve chat state from 
+  // the central store. We use refs for scroll state to avoid 
+  // unnecessary re-renders during high-frequency scroll events.
+  // =================================================================
   const { styles, cx } = useStyles();
   const containerRef = useRef<HTMLDivElement>(null);
   const userScrolledUpRef = useRef(false);
@@ -47,9 +53,16 @@ export function MessageList({ className, onRegenerate, onEdit, onSelectSuggestio
   const ragMessage = useChatStore((state) => state.ragMessage);
   const ragSources = useChatStore((state) => state.ragSources);
 
-
+  // =================================================================
+  // SCROLL MANAGEMENT LOGIC
+  // Why: Balance auto-scroll convenience with manual scroll control.
+  // Automated scrolling can be intrusive if a user is trying to read
+  // past messages while a new response is streaming.
+  // =================================================================
 
   // Handle user scroll - track if user manually scrolled up
+  // Why: If the user scrolls up more than the threshold, we disable
+  // auto-scroll to preserve their reading position.
   const handleScroll = useCallback(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -78,6 +91,8 @@ export function MessageList({ className, onRegenerate, onEdit, onSelectSuggestio
   }, [handleScroll]);
 
   // Reset user scroll state when streaming starts (if already at bottom)
+  // Why: When a new request starts, we should resume auto-scroll 
+  // unless the user was already looking at older content.
   useEffect(() => {
     if (isStreaming) {
       const container = containerRef.current;
@@ -96,6 +111,8 @@ export function MessageList({ className, onRegenerate, onEdit, onSelectSuggestio
   }, [isStreaming]);
 
   // Auto-scroll to bottom when messages change
+  // Why: Ensure the latest AI tokens are visible. Includes logic
+  // to prioritize the user's initial query visibility on first turn.
   useEffect(() => {
     if (containerRef.current) {
       const container = containerRef.current;
@@ -117,7 +134,9 @@ export function MessageList({ className, onRegenerate, onEdit, onSelectSuggestio
           const isFirstTurn = messages.length <= 2;
           
           if (isFirstTurn && isStreaming && messageElements.length > 0) {
-            // Scroll to the first message (the user message) to ensure it's visible
+            // IF: First interaction turn
+            // Why: Avoid jarring jump to empty assistant placeholder
+            // before RAG or thinking content fills the screen.
             messageElements[0].scrollIntoView({ block: 'start', behavior: 'smooth' });
           } else {
             container.scrollTo({

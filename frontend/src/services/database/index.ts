@@ -1,8 +1,11 @@
-/**
- * Database Service
- * Unified interface for all database operations
- * Provides repository access, settings management, and data import/export
- */
+// =================================================================
+// DATABASE SERVICE LAYER
+// Why: Provides a high-level, unified interface for all data 
+// persistence operations. This service abstracts the underlying 
+// Dexie/IndexedDB complexities, providing type-safe repositories, 
+// settings management, and robust data import/export capabilities 
+// with full schema validation.
+// =================================================================
 
 import { conversationRepo } from '@/database/repositories/conversationRepo';
 import { messageRepo } from '@/database/repositories/messageRepo';
@@ -34,11 +37,21 @@ interface ValidationResult {
   error?: string;
 }
 
+// =================================================================
+// VALIDATION UTILITIES
+// Why: Ensuring data integrity during imports is critical to 
+// preventing application state corruption. These validators 
+// perform deep structural checks on incoming JSON data.
+// =================================================================
+
 /**
  * Validates that a value is a valid Date or can be converted to one
  */
 function isValidDate(value: unknown): boolean {
+  // IF: Already a Date object
   if (value instanceof Date) return !isNaN(value.getTime());
+  
+  // IF: String or Number (likely serialized timestamp)
   if (typeof value === 'string' || typeof value === 'number') {
     const date = new Date(value);
     return !isNaN(date.getTime());
@@ -50,12 +63,14 @@ function isValidDate(value: unknown): boolean {
  * Validates a conversation object
  */
 function validateConversation(conv: unknown): ValidationResult {
+  // IF: Not an object
   if (!conv || typeof conv !== 'object') {
     return { valid: false, error: 'Conversation must be an object' };
   }
 
   const c = conv as Record<string, unknown>;
 
+  // Why: Explicitly check required fields and types according to schema.
   if (typeof c.id !== 'string' || c.id.length === 0) {
     return { valid: false, error: 'Conversation must have a valid id' };
   }
@@ -126,7 +141,7 @@ function validateSetting(setting: unknown): ValidationResult {
     return { valid: false, error: 'Setting must have a valid key' };
   }
 
-  // value can be any JSON-serializable type, so we just check it exists
+  // Why: 'value' can be any JSON type, so just ensure it's not undefined.
   if (s.value === undefined) {
     return { valid: false, error: 'Setting must have a value' };
   }
@@ -148,7 +163,9 @@ function validateExportedData(data: unknown): ValidationResult {
 
   const d = data as Record<string, unknown>;
 
-  // Validate version
+  // IF: Missing or invalid version
+  // Why: Prevent importing data from future versions of the app 
+  // that might have incompatible schemas.
   if (typeof d.version !== 'number' || d.version < 1) {
     return { valid: false, error: 'Invalid export version' };
   }
@@ -160,19 +177,17 @@ function validateExportedData(data: unknown): ValidationResult {
     };
   }
 
-  // Validate exportedAt
   if (!isValidDate(d.exportedAt)) {
     return { valid: false, error: 'Invalid export timestamp' };
   }
 
-  // Validate data structure
   if (!d.data || typeof d.data !== 'object') {
     return { valid: false, error: 'Missing data section' };
   }
 
   const dataSection = d.data as Record<string, unknown>;
 
-  // Validate conversations array
+  // Why: Iteratively validate each entity type to ensure total consistency.
   if (dataSection.conversations !== undefined) {
     if (!Array.isArray(dataSection.conversations)) {
       return { valid: false, error: 'Conversations must be an array' };
@@ -186,7 +201,6 @@ function validateExportedData(data: unknown): ValidationResult {
     }
   }
 
-  // Validate messages array
   if (dataSection.messages !== undefined) {
     if (!Array.isArray(dataSection.messages)) {
       return { valid: false, error: 'Messages must be an array' };
@@ -200,7 +214,6 @@ function validateExportedData(data: unknown): ValidationResult {
     }
   }
 
-  // Validate settings array
   if (dataSection.settings !== undefined) {
     if (!Array.isArray(dataSection.settings)) {
       return { valid: false, error: 'Settings must be an array' };
@@ -219,6 +232,8 @@ function validateExportedData(data: unknown): ValidationResult {
 
 /**
  * Converts date strings to Date objects in imported data
+ * Why: JSON does not have a native Date type. We must manually 
+ * re-hydrate string timestamps into JS Date objects.
  */
 function convertDates<T>(
   items: T[],
@@ -235,6 +250,10 @@ function convertDates<T>(
   });
 }
 
+// =================================================================
+// PUBLIC SERVICE API
+// =================================================================
+
 export const databaseService = {
   /** Conversation repository for CRUD operations */
   conversation: conversationRepo,
@@ -246,25 +265,13 @@ export const databaseService = {
    * Key-value store for application settings
    */
   settings: {
-    /**
-     * Get a setting value by key
-     * @param key - The setting key
-     * @returns The setting value or undefined
-     */
     async get<T>(key: string): Promise<T | undefined> {
       const setting = await db.settings.get(key);
       if (!setting) return undefined;
 
-      // Type-safe return with runtime check
       return setting.value as T;
     },
 
-    /**
-     * Set a setting value
-     * Creates or updates the setting
-     * @param key - The setting key
-     * @param value - The value to store (must be JSON serializable)
-     */
     async set<T>(key: string, value: T): Promise<void> {
       const setting: Setting = {
         key,
@@ -274,10 +281,6 @@ export const databaseService = {
       await db.settings.put(setting);
     },
 
-    /**
-     * Delete a setting
-     * @param key - The setting key to delete
-     */
     async delete(key: string): Promise<void> {
       await db.settings.delete(key);
     },
@@ -285,10 +288,11 @@ export const databaseService = {
 
   /**
    * Get storage usage estimate
-   * Uses the Storage API to estimate IndexedDB usage
-   * @returns Object with usage and quota in bytes
    */
   async getStorageEstimate(): Promise<{ usage: number; quota: number }> {
+    // IF: Storage API is supported by the browser
+    // Why: Inform the user about local disk space consumption 
+    // for their conversation history.
     if (
       typeof navigator !== 'undefined' &&
       'storage' in navigator &&
@@ -305,8 +309,6 @@ export const databaseService = {
 
   /**
    * Export all database data as JSON string
-   * Includes version and timestamp for compatibility checking
-   * @returns JSON string of all data
    */
   async exportData(): Promise<string> {
     const conversations = await db.conversations.toArray();
@@ -324,12 +326,8 @@ export const databaseService = {
 
   /**
    * Import data from JSON string with validation
-   * Uses bulkPut to upsert records (creates or updates)
-   * @param jsonString - JSON string from exportData()
-   * @throws Error if validation fails or import encounters an error
    */
   async importData(jsonString: string): Promise<void> {
-    // Parse JSON with error handling
     let parsed: unknown;
     try {
       parsed = JSON.parse(jsonString);
@@ -338,8 +336,9 @@ export const databaseService = {
       throw new Error('Invalid JSON format');
     }
 
-    // Validate the structure
     const validation = validateExportedData(parsed);
+    // IF: Validation fails
+    // Why: Halt the import immediately to protect the database.
     if (!validation.valid) {
       logger.warn('Import validation failed', { error: validation.error });
       throw new Error(`Import validation failed: ${validation.error}`);
@@ -348,8 +347,9 @@ export const databaseService = {
     const exportedData = parsed as ExportedData;
     const { data } = exportedData;
 
-    // Perform import in a transaction with rollback on error
     try {
+      // Why: Use an atomic transaction for the entire import process. 
+      // If any table fails to import, the whole operation rolls back.
       await db.transaction('rw', [db.conversations, db.messages, db.settings], async () => {
         if (data.conversations && data.conversations.length > 0) {
           const conversations = convertDates(data.conversations, ['createdAt', 'updatedAt']);
@@ -372,7 +372,6 @@ export const databaseService = {
 
       logger.info('Import completed successfully');
     } catch (transactionError) {
-      // Dexie automatically rolls back on transaction error
       logger.error('Import transaction failed', transactionError as Error);
       throw new Error('Import failed. Changes have been rolled back.');
     }

@@ -6,6 +6,12 @@ import { motion } from 'framer-motion';
 
 const { Text } = Typography;
 
+// =================================================================
+// STYLES DEFINITION
+// Why: Define visual presentation for the suggestion chips.
+// We use antd-style to leverage the global theme tokens while
+// maintaining scoped CSS-in-JS.
+// =================================================================
 const useStyles = createStyles(({ token, css }) => ({
   container: {
     marginTop: token.marginMD,
@@ -48,6 +54,12 @@ interface SuggestedQuestionsProps {
   disabled?: boolean;
 }
 
+// =================================================================
+// SUGGESTED QUESTIONS COMPONENT
+// Why: Enhances user engagement by providing context-aware 
+// follow-up questions, reducing the cognitive load for the user
+// and encouraging further exploration of the literature.
+// =================================================================
 export const SuggestedQuestions: React.FC<SuggestedQuestionsProps> = ({
   suggestions,
   onSelect,
@@ -55,6 +67,9 @@ export const SuggestedQuestions: React.FC<SuggestedQuestionsProps> = ({
 }) => {
   const { styles } = useStyles();
 
+  // IF: No suggestions are provided
+  // Why: Avoid rendering an empty container that would create 
+  // unnecessary whitespace in the chat bubble.
   if (!suggestions || suggestions.length === 0) return null;
 
   return (

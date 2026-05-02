@@ -1,8 +1,10 @@
-/**
- * Structured Error Logging Utility
- * Provides consistent logging format with context
- * Avoids exposing sensitive information in logs
- */
+// =================================================================
+// STRUCTURED LOGGING UTILITY
+// Why: Centralized logging ensures that all application events and 
+// errors are recorded in a consistent, machine-readable format. This 
+// facilitates better observability, easier debugging of production 
+// issues, and prevents accidental leaking of PII or credentials.
+// =================================================================
 
 /** Log levels */
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
@@ -20,7 +22,11 @@ interface LogEntry {
   };
 }
 
-/** Sensitive keys that should be redacted */
+/** 
+ * Sensitive keys that should be redacted
+ * Why: Prevent leaking credentials or secrets in browser logs or 
+ * centralized logging services.
+ */
 const SENSITIVE_KEYS = [
   'api_key',
   'apiKey',
@@ -43,13 +49,22 @@ function redactSensitive(obj: Record<string, unknown>): Record<string, unknown> 
 
   for (const [key, value] of Object.entries(obj)) {
     const lowerKey = key.toLowerCase();
+    
+    // IF: Key name contains any known sensitive substrings
+    // Why: Ensure we don't accidentally log passwords, API keys, or auth tokens.
     const isSensitive = SENSITIVE_KEYS.some((sk) => lowerKey.includes(sk));
 
     if (isSensitive) {
       result[key] = '[REDACTED]';
-    } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+    } 
+    // IF: Value is a nested object
+    // Why: Recursively redact sensitive information in nested structures.
+    else if (value && typeof value === 'object' && !Array.isArray(value)) {
       result[key] = redactSensitive(value as Record<string, unknown>);
-    } else {
+    } 
+    // ELSE: Non-sensitive value
+    // Why: Pass through safe values as-is.
+    else {
       result[key] = value;
     }
   }
@@ -76,6 +91,9 @@ export const logger = {
    * @param context - Optional context data
    */
   debug(message: string, context?: Record<string, unknown>): void {
+    // IF: Running in production
+    // Why: Disable debug logs in production to save bandwidth and 
+    // improve performance.
     if (process.env.NODE_ENV === 'production') return;
 
     const entry: LogEntry = {
@@ -133,6 +151,9 @@ export const logger = {
         ? {
             name: error.name,
             message: error.message,
+            // IF: NOT in production
+            // Why: Expose stack traces only during development to 
+            // assist in debugging while keeping production logs lean.
             stack: process.env.NODE_ENV !== 'production' ? error.stack : undefined,
           }
         : undefined,
@@ -140,3 +161,4 @@ export const logger = {
     console.error(formatLogEntry(entry));
   },
 };
+

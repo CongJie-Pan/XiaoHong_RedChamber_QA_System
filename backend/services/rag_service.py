@@ -483,10 +483,10 @@ class RAGService:
         # so we can just import it directly from services.bm25_search
         
         try:
-            from services.bm25_search import BM25Search
+            from backend.services.bm25_search import BM25Search
         except ImportError:
             # Fallback for local testing or relative imports
-            from bm25_search import BM25Search
+            from .bm25_search import BM25Search
 
         bm25_pkl = self._bm25_index_dir / "bm25_index.pkl"
         if not bm25_pkl.exists():

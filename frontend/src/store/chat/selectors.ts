@@ -1,7 +1,10 @@
-/**
- * Chat Store Selectors
- * Pure functions for deriving data from chat state
- */
+// =================================================================
+// CHAT STORE SELECTORS
+// Why: Provides a layer of abstraction for accessing and deriving 
+// data from the chat state. This promotes memoization and ensures 
+// that components only re-render when the specific slice of state 
+// they depend on changes.
+// =================================================================
 
 import type { ChatState, ThinkingState, DisplayMessage } from './types';
 
@@ -24,6 +27,8 @@ export const chatSelectors = {
     content: state.thinkingContent,
     isThinking: state.isThinking,
     startTime: state.thinkingStartTime,
+    // Why: Calculate duration on-the-fly to provide a live-updating 
+    // timer in the ThinkingPanel without persisting every tick to the store.
     duration: state.thinkingStartTime
       ? Date.now() - state.thinkingStartTime
       : undefined,
@@ -52,7 +57,10 @@ export const chatSelectors = {
    * @returns DisplayMessage or undefined
    */
   streamingMessage: (state: ChatState): DisplayMessage | undefined => {
+    // IF: No active stream
+    // Why: Safety check to avoid unnecessary searches.
     if (!state.currentStreamingId) return undefined;
+    
     return state.messages.find((msg) => msg.id === state.currentStreamingId);
   },
 
@@ -83,10 +91,11 @@ export const chatSelectors = {
   currentContent: (state: ChatState): string => state.currentContent,
 };
 
-/**
- * Hook-friendly selector creators
- * Use these with useChatStore(selector) for optimized re-renders
- */
+// =================================================================
+// HOOK-FRIENDLY SELECTOR CREATORS
+// Why: Standalone functions optimized for use with the useChatStore 
+// hook, reducing boilerplate in component files.
+// =================================================================
 export const selectDisplayMessages = (state: ChatState) => state.messages;
 export const selectIsStreaming = (state: ChatState) => state.isStreaming;
 export const selectIsThinking = (state: ChatState) => state.isThinking;
@@ -94,3 +103,4 @@ export const selectThinkingContent = (state: ChatState) => state.thinkingContent
 export const selectCurrentContent = (state: ChatState) => state.currentContent;
 export const selectCitations = (state: ChatState) => state.currentCitations;
 export const selectError = (state: ChatState) => state.error;
+

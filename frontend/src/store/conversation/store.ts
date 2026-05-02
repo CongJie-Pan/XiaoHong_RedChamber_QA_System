@@ -1,7 +1,10 @@
-/**
- * Conversation Store
- * Zustand store for managing conversation list and selection
- */
+// =================================================================
+// CONVERSATION ZUSTAND STORE
+// Why: Manages the collection of chat threads, handling database 
+// synchronization, background title generation, and selection state. 
+// This store acts as the primary controller for the sidebar and 
+// conversation history management.
+// =================================================================
 
 import { create } from 'zustand';
 import { databaseService } from '@/services/database';
@@ -24,6 +27,12 @@ const initialState = {
  */
 export const useConversationStore = create<ConversationStore>((set) => ({
   ...initialState,
+
+  // =================================================================
+  // PERSISTENCE ACTIONS
+  // Why: Bridges the in-memory state with the Dexie/IndexedDB storage 
+  // to ensure data survives page reloads.
+  // =================================================================
 
   loadConversations: async () => {
     set({ isLoading: true, error: null });
@@ -63,6 +72,9 @@ export const useConversationStore = create<ConversationStore>((set) => ({
       await databaseService.conversation.delete(id);
       set((state) => ({
         conversations: state.conversations.filter((c) => c.id !== id),
+        // IF: The active conversation is being deleted
+        // Why: Reset selection to prevent the UI from trying to 
+        // display a non-existent conversation.
         activeConversationId:
           state.activeConversationId === id ? null : state.activeConversationId,
         error: null,
@@ -90,6 +102,12 @@ export const useConversationStore = create<ConversationStore>((set) => ({
     set({ error });
   },
 
+  // =================================================================
+  // BACKGROUND TITLE GENERATION
+  // Why: Automatically summarizes the first few messages of a chat into 
+  // a concise title. Uses streaming to provide immediate UI feedback.
+  // =================================================================
+  
   generateTitle: async (conversationId: string, messages: { role: string; content: string }[]) => {
     try {
       // Start streaming state
@@ -105,6 +123,9 @@ export const useConversationStore = create<ConversationStore>((set) => ({
         body: JSON.stringify({ messages }),
       });
 
+      // IF: Fetch request fails
+      // Why: Catch network or server-side errors before attempting 
+      // to read the body.
       if (!response.ok || !response.body) {
         throw new Error('Failed to generate title');
       }
@@ -113,6 +134,7 @@ export const useConversationStore = create<ConversationStore>((set) => ({
       const decoder = new TextDecoder();
       let fullTitle = '';
 
+      // Why: Process the stream chunk-by-chunk for a responsive UI.
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -121,6 +143,8 @@ export const useConversationStore = create<ConversationStore>((set) => ({
         const lines = chunk.split('\n');
 
         for (const line of lines) {
+          // IF: Line follows the SSE 'data: ' format
+          // Why: Parse individual events from the stream.
           if (line.trim().startsWith('data: ')) {
             const dataStr = line.trim().slice(6);
             if (dataStr === '[DONE]') continue;
@@ -128,6 +152,8 @@ export const useConversationStore = create<ConversationStore>((set) => ({
             
             try {
               const data = JSON.parse(dataStr);
+              // IF: Chunk contains valid title content
+              // Why: Accumulate and update the transient streaming title.
               if (data.content) {
                 fullTitle += data.content;
                 set((state) => ({
@@ -145,17 +171,19 @@ export const useConversationStore = create<ConversationStore>((set) => ({
         }
       }
 
-      // Persist the final title
+      // IF: We successfully generated a non-empty title
+      // Why: Persist the final result to the local database and 
+      // refresh the conversation list to ensure consistency.
       if (fullTitle.trim()) {
         const finalTitle = fullTitle.trim();
         await databaseService.conversation.update(conversationId, { title: finalTitle });
         
-        // Refresh conversations to show the persistent title
         const conversations = await databaseService.conversation.getAll();
         set({ conversations });
       }
 
-      // Cleanup
+      // Why: Remove the ID from streamingTitles to signal that 
+      // background generation is complete.
       set((state) => {
         const newStreamingTitles = { ...state.streamingTitles };
         delete newStreamingTitles[conversationId];
@@ -163,6 +191,7 @@ export const useConversationStore = create<ConversationStore>((set) => ({
       });
     } catch (error) {
       console.error('Error generating title:', error);
+      // Why: Ensure cleanup even on failure.
       set((state) => {
         const newStreamingTitles = { ...state.streamingTitles };
         delete newStreamingTitles[conversationId];
@@ -172,31 +201,27 @@ export const useConversationStore = create<ConversationStore>((set) => ({
   },
 }));
 
-/**
- * Selectors for conversation store
- */
+// =================================================================
+// SELECTORS & SELECTOR CREATORS
+// =================================================================
+
 export const conversationSelectors = {
-  /** Get active conversation */
   activeConversation: (state: ConversationStore): Conversation | undefined => {
     if (!state.activeConversationId) return undefined;
     return state.conversations.find((c) => c.id === state.activeConversationId);
   },
 
-  /** Check if has conversations */
   hasConversations: (state: ConversationStore): boolean => {
     return state.conversations.length > 0;
   },
 
-  /** Get conversation count */
   conversationCount: (state: ConversationStore): number => {
     return state.conversations.length;
   },
 };
 
-/**
- * Hook-friendly selector creators
- */
 export const selectConversations = (state: ConversationStore) => state.conversations;
 export const selectActiveConversationId = (state: ConversationStore) => state.activeConversationId;
 export const selectIsLoading = (state: ConversationStore) => state.isLoading;
 export const selectError = (state: ConversationStore) => state.error;
+

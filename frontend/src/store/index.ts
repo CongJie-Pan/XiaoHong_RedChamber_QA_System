@@ -1,9 +1,16 @@
-/**
- * Store Module
- * Central export for all Zustand stores
- */
+// =================================================================
+// STATE MANAGEMENT BARREL MODULE
+// Why: Provides a unified entry point for all Zustand stores and 
+// selectors used throughout the React application. This centralizes 
+// state access and ensures that components can easily import 
+// necessary state hooks and types without deep-nesting imports.
+// =================================================================
 
-// Chat store
+// =================================================================
+// CHAT STORE EXPORTS
+// Why: Manages the active chat interaction, including message streams, 
+// thinking states, and citations.
+// =================================================================
 export {
   useChatStore,
   chatSelectors,
@@ -23,7 +30,11 @@ export type {
   ThinkingState,
 } from './chat';
 
-// Conversation store
+// =================================================================
+// CONVERSATION STORE EXPORTS
+// Why: Manages the lifecycle of multiple conversations, including 
+// history, active selection, and persistence metadata.
+// =================================================================
 export {
   useConversationStore,
   conversationSelectors,
@@ -36,3 +47,4 @@ export type {
   ConversationState,
   ConversationActions,
 } from './conversation';
+
