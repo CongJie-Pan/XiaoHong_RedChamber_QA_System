@@ -51,7 +51,6 @@ next-env.d.ts
 data/rag/bm25_index
 data/rag/faiss_index
 backend/.venv
-backend/__pycache__
 frontend/node_modules
 /.drift
 /.driftignore
@@ -59,3 +58,10 @@ frontend/node_modules
 /node_modules
 /temp
 /docs/worklog
+
+# Python
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
