@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
 
     // FASTAPI TARGET
     // Replace the external perplexity endpoint with the internal FastAPI microservice
-    const fastApiUrl = 'http://127.0.0.1:8000/api/stream';
+    const fastApiUrl = 'http://127.0.0.1:8000/api/v1/stream';
 
     logger.info(`Forwarding chat request to internal backend: ${fastApiUrl}`);
 
@@ -179,13 +179,18 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error: unknown) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      logger.info('Client aborted the request, propagated to backend', { clientId });
-      // Request was cancelled by the client, no response needed (browser handles it)
-      return new Response(null, { status: 499 }); // 499 Client Closed Request
+    const err = error instanceof Error ? error : new Error(String(error));
+    
+    if (err.name === 'AbortError' || err.name === 'ResponseAborted') {
+      logger.info('Request aborted or connection closed', { 
+        clientId, 
+        errorName: err.name,
+        message: err.message 
+      });
+      return new Response(null, { status: 499 }); 
     }
 
-    logger.error('Chat API unexpected error', error instanceof Error ? error : new Error(String(error)));
+    logger.error('Chat API unexpected error', err, { clientId });
     
     if (error instanceof TypeError && error.message.includes('fetch')) {
       return createErrorResponse('Unable to connect to internal AI service.', 'NETWORK_ERROR', 503);

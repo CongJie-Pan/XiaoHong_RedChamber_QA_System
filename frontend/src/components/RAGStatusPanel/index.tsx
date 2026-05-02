@@ -6,13 +6,13 @@
  */
 
 import React, { memo } from 'react';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { CitationSource } from '@/components/Citations';
 import { useStyles } from './styles';
 
 export interface RAGInfo {
-  status: 'idle' | 'retrieving' | 'searching_dense' | 'searching_sparse' | 'reranking' | 'sources_ready' | 'generating' | 'done';
+  status: 'idle' | 'routing' | 'retrieving' | 'searching_dense' | 'searching_sparse' | 'reranking' | 'sources_ready' | 'generating' | 'done';
   message: string;
   sources: CitationSource[];
 }
@@ -25,6 +25,7 @@ const RAGStatusPanelComponent = ({ ragInfo }: RAGStatusPanelProps) => {
   const { styles } = useStyles();
 
   const isComplete = ['sources_ready', 'generating', 'done'].includes(ragInfo.status);
+  const isRouting = ragInfo.status === 'routing';
 
   // Don't show if idle
   if (ragInfo.status === 'idle') return null;
@@ -47,6 +48,14 @@ const RAGStatusPanelComponent = ({ ragInfo }: RAGStatusPanelProps) => {
             >
               <CheckCircle2 size={18} className={styles.checkIcon} />
             </motion.div>
+          ) : isRouting ? (
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+              className={styles.spinnerWrapper}
+            >
+              <Loader2 size={18} className={styles.routingIcon} />
+            </motion.div>
           ) : (
             <div className={styles.radarWrapper}>
               <div className={styles.radarCore} />
@@ -56,17 +65,20 @@ const RAGStatusPanelComponent = ({ ragInfo }: RAGStatusPanelProps) => {
           
           <div style={{ overflow: 'hidden', height: '24px', position: 'relative' }}>
             <AnimatePresence mode="wait">
-              <motion.span 
-                key={ragInfo.message || ragInfo.status}
-                className={styles.statusText}
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: -20, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                style={{ display: 'block', whiteSpace: 'nowrap' }}
-              >
-                {ragInfo.message || (isComplete ? '已完成文獻檢索' : '正在檢索相關文獻...')}
-              </motion.span>
+              {/* Hide text message when routing as requested "不用 發送「🔍 正在識別問題領域...」" */}
+              {!isRouting && (
+                <motion.span 
+                  key={ragInfo.message || ragInfo.status}
+                  className={styles.statusText}
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: -20, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  style={{ display: 'block', whiteSpace: 'nowrap' }}
+                >
+                  {ragInfo.message || (isComplete ? '已完成文獻檢索' : '正在檢索相關文獻...')}
+                </motion.span>
+              )}
             </AnimatePresence>
           </div>
         </div>

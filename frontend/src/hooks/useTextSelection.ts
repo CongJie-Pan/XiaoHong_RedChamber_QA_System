@@ -32,6 +32,27 @@ export function useTextSelection() {
       return;
     }
 
+    // Helper to find AI bubble ancestor
+    const findAssistantBubble = (node: Node | null): HTMLElement | null => {
+      let current = node;
+      while (current && current !== document.body) {
+        if (current instanceof HTMLElement && current.getAttribute('data-role') === 'assistant-bubble') {
+          return current;
+        }
+        current = current.parentNode;
+      }
+      return null;
+    };
+
+    // Robust check: both ends of selection must be within an AI bubble
+    const anchorBubble = findAssistantBubble(sel.anchorNode);
+    const focusBubble = findAssistantBubble(sel.focusNode);
+
+    if (!anchorBubble || !focusBubble || anchorBubble !== focusBubble) {
+      setSelection({ text: '', rect: null });
+      return;
+    }
+
     const text = sel.toString();
     const range = sel.getRangeAt(0);
     const rect = range.getBoundingClientRect();

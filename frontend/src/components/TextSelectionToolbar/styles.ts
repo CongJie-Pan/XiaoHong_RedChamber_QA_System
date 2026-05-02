@@ -6,13 +6,13 @@ export const useStyles = createStyles(({ css }) => ({
     z-index: 1000;
     display: flex;
     align-items: center;
-    background: #262626;
-    border-radius: 6px;
-    padding: 4px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    gap: 2px;
+    background: #434343;
+    border-radius: 8px;
+    padding: 2px 6px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    gap: 4px;
     pointer-events: auto;
-    border: 1px solid #434343;
+    border: 1px solid #595959;
     animation: fadeIn 0.15s ease-out;
 
     @keyframes fadeIn {
@@ -24,37 +24,38 @@ export const useStyles = createStyles(({ css }) => ({
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
+    gap: 6px;
+    padding: 0 10px;
     height: 32px;
     border: none;
     background: transparent;
-    color: #bfbfbf;
+    color: #e8e8e8;
     cursor: pointer;
-    border-radius: 4px;
+    border-radius: 6px;
     transition: all 0.2s;
+    font-size: 13px;
+    font-weight: 500;
 
     &:hover {
-      background: #434343;
+      background: #595959;
       color: #ffffff;
     }
 
     &:active {
-      background: #595959;
+      background: #757575;
+    }
+
+    svg {
+      flex-shrink: 0;
     }
   `,
   divider: css`
     width: 1px;
-    height: 16px;
-    background: #434343;
+    height: 18px;
+    background: #595959;
     margin: 0 2px;
   `,
   label: css`
-    font-size: 12px;
-    padding: 0 8px;
-    color: #8c8c8c;
-    border-left: 1px solid #434343;
-    height: 16px;
-    display: flex;
-    align-items: center;
+    white-space: nowrap;
   `,
 }));

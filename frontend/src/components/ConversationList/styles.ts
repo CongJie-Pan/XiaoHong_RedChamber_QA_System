@@ -32,7 +32,7 @@ export const useStyles = createStyles(({ css }) => ({
   `,
 
   logoContainer: css`
-    padding: 12px 12px 0px;
+    padding: 12px 12px 24px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -116,14 +116,12 @@ export const useStyles = createStyles(({ css }) => ({
     flex-direction: column;
     gap: 2px;
 
-    /* Scrollbar styling */
+    /* Hide scrollbar */
     &::-webkit-scrollbar {
-      width: 4px;
+      display: none;
     }
-    &::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 2px;
-    }
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
   `,
 
   groupTitle: css`

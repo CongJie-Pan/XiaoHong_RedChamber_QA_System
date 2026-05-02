@@ -100,11 +100,12 @@ describe('Title API Route', () => {
     const response = await POST(request as any);
     expect(response.status).toBe(200);
     expect(global.fetch).toHaveBeenCalledWith(
-      'http://127.0.0.1:8000/api/generate_title',
+      'http://127.0.0.1:8000/api/v1/generate-title',
       expect.objectContaining({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: MOCK_MESSAGES }),
+        signal: expect.any(AbortSignal),
       })
     );
     expect(response.headers.get('Content-Type')).toBe('text/event-stream; charset=utf-8');

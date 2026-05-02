@@ -32,7 +32,7 @@ export const useStyles = createStyles(({ css, token }) => ({
     flex-direction: column;
     gap: 0;
     padding: 0;
-    overflow-y: auto;
+    overflow-y: scroll; /* Force scrollbar to be always visible */
     flex: 1;
   `,
 
@@ -66,11 +66,16 @@ export const useStyles = createStyles(({ css, token }) => ({
   messageItem: css`
     display: flex;
     flex-direction: column;
-    padding: 32px 0;
+    padding: 12px 0;
     max-width: 800px;
     width: 90%;
     margin: 0 auto;
     animation: ${fadeIn} 0.3s ease-out;
+
+    /* If an assistant message follows a user message, reduce the top padding even more */
+    &.assistant-after-user {
+      padding-top: 4px;
+    }
   `,
 
   userMessage: css`
@@ -152,23 +157,72 @@ export const useStyles = createStyles(({ css, token }) => ({
     color: #f0f0f0;
     align-self: flex-start;
   `,
+content: css`
+  font-size: 16px;
+  line-height: 1.8;
+  color: #e0e0e0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 
-  content: css`
-    font-size: 16px;
-    line-height: 1.8;
-    color: #e0e0e0;
-    overflow-wrap: anywhere;
-    word-break: break-word;
+  p {
+    margin: 0 0 8px 0;
 
-    p {
-      margin: 0 0 8px 0;
-
-      &:last-child {
-        margin-bottom: 0;
-      }
+    &:last-child {
+      margin-bottom: 0;
     }
+  }
+`,
 
-    code {
+quoteBlock: css`
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 4px 0 10px 0;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  color: #999999;
+  font-size: 13px;
+  border: none;
+  width: fit-content;
+  max-width: 100%;
+  transition: all 0.2s ease;
+  font-style: italic;
+  align-self: flex-start;
+
+  &.interactive-quote:hover {
+    opacity: 0.8;
+    transform: translateX(2px);
+  }
+`,
+
+quoteBlockArrow: css`
+  color: inherit;
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  display: inline-block;
+  margin-top: 3px;
+`,
+
+quoteBlockContent: css`
+  flex: 1;
+  opacity: 0.9;
+  line-height: 1.5;
+  color: inherit;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  text-overflow: ellipsis;
+
+  p {
+    margin: 0;
+    display: inline;
+  }
+`,
+
+code: css`...
       padding: 2px 6px;
       background: ${token.colorFillTertiary};
       border-radius: ${token.borderRadiusSM}px;

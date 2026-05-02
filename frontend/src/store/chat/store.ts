@@ -28,7 +28,7 @@ const initialState = {
   tokenUsage: null as { promptTokens?: number; completionTokens?: number; totalTokens?: number } | null,
   useRag: false,
   forceThink: false,
-  ragStatus: 'idle' as 'idle' | 'retrieving' | 'sources_ready' | 'generating' | 'done',
+  ragStatus: 'idle' as 'idle' | 'routing' | 'retrieving' | 'searching_dense' | 'searching_sparse' | 'reranking' | 'sources_ready' | 'generating' | 'done',
   ragMessage: '',
   ragSources: [] as CitationSource[],
 };
@@ -284,6 +284,7 @@ export const useChatStore = create<ChatStore>((set) => ({
       isThinking: false,
       currentContent: '',
       currentCitations: [],
+      quotedText: null,
       error: null,
       ragStatus: 'idle',
       ragMessage: '',

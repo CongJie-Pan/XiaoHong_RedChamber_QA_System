@@ -8,8 +8,8 @@
 import React, { memo, useCallback, useState } from 'react';
 import ReactMarkdown, { Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Copy, RefreshCw, Edit } from 'lucide-react';
-import { Tooltip, message as antMessage } from 'antd';
+import { Copy, RefreshCw, Edit, CornerDownRight } from 'lucide-react';
+import { Tooltip, App } from 'antd';
 import { ThinkingPanel } from '@/components/ThinkingPanel';
 import { SuggestedQuestions } from '@/components/SuggestedQuestions';
 import { Citations } from '@/components/Citations';
@@ -38,9 +38,34 @@ function isSafeUrl(url: string | undefined): boolean {
 }
 
 /**
- * Custom ReactMarkdown components for XSS protection
+ * Custom ReactMarkdown components for XSS protection and custom styling
  */
-const markdownComponents: Components = {
+const createMarkdownComponents = (styles: any, cx: any, onQuoteClick: (text: string) => void): Components => ({
+  // Custom blockquote for citations
+  blockquote: ({ children }) => {
+    // Extract text content from children to find it in the DOM
+    const extractText = (node: any): string => {
+      if (typeof node === 'string') return node;
+      if (Array.isArray(node)) return node.map(extractText).join('');
+      if (node?.props?.children) return extractText(node.props.children);
+      return '';
+    };
+    const textContent = extractText(children).trim();
+
+    return (
+      <blockquote 
+        className={cx(styles.quoteBlock, 'interactive-quote')} 
+        onClick={() => onQuoteClick(textContent)}
+        style={{ cursor: 'pointer' }}
+        title="點擊以在文中反白此段落"
+      >
+        <CornerDownRight size={14} className={styles.quoteBlockArrow} />
+        <div className={styles.quoteBlockContent}>
+          {children}
+        </div>
+      </blockquote>
+    );
+  },
   // Sanitize links - only allow safe protocols
   a: ({ href, children, ...props }) => {
     if (!isSafeUrl(href)) {
@@ -70,7 +95,7 @@ const markdownComponents: Components = {
   },
   // Prevent script tags (should be blocked by default, but extra safety)
   script: () => null,
-};
+});
 
 export interface MessageItemProps {
   /** Message data */
@@ -85,7 +110,7 @@ export interface MessageItemProps {
   };
   /** RAG status metadata */
   ragInfo?: {
-    status: 'idle' | 'retrieving' | 'searching_dense' | 'searching_sparse' | 'reranking' | 'sources_ready' | 'generating' | 'done';
+    status: 'idle' | 'routing' | 'retrieving' | 'searching_dense' | 'searching_sparse' | 'reranking' | 'sources_ready' | 'generating' | 'done';
     message: string;
     sources: CitationSource[];
   };
@@ -97,21 +122,8 @@ export interface MessageItemProps {
   isLast?: boolean;
   /** Callback when a suggested question is clicked */
   onSelectSuggestion?: (question: string) => void;
-}
-
-/**
- * Format timestamp for display
- * Format: "2025-12-07 11:25 AM"
- */
-function formatTime(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const time = new Intl.DateTimeFormat('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date);
-  return `${year}-${month}-${day} ${time}`;
+  /** Optional class name for custom styling */
+  className?: string;
 }
 
 /**
@@ -126,9 +138,72 @@ export const MessageItem = memo(function MessageItem({
   onEdit,
   isLast = false,
   onSelectSuggestion,
+  className,
 }: MessageItemProps) {
   const { styles, cx } = useStyles();
+  const { message: antMessageApi } = App.useApp();
   const isUser = message.role === 'user';
+  const bubbleRef = React.useRef<HTMLDivElement>(null);
+
+  // Handle clicking on a quote bubble to highlight text in the original message
+  const handleQuoteClick = useCallback((quoteText: string) => {
+    if (!bubbleRef.current || !quoteText) return;
+
+    // Clear any existing selection first
+    const selection = window.getSelection();
+    if (selection) selection.removeAllRanges();
+
+    // 1. First attempt: Use DOM TreeWalker (precise but sensitive to node splitting)
+    const walk = document.createTreeWalker(bubbleRef.current, NodeFilter.SHOW_TEXT, null);
+    let node;
+    let found = false;
+    
+    while ((node = walk.nextNode())) {
+      const text = node.textContent || '';
+      const index = text.indexOf(quoteText);
+      
+      if (index !== -1 && node.parentElement) {
+        // Skip highlighting within quote blocks themselves
+        if (node.parentElement.closest('.interactive-quote')) continue;
+
+        node.parentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        try {
+          const range = document.createRange();
+          range.setStart(node, index);
+          range.setEnd(node, index + quoteText.length);
+          
+          if (selection) {
+            selection.addRange(range);
+            found = true;
+          }
+        } catch (e) {
+          console.warn('Range highlight failed, falling back:', e);
+        }
+        break;
+      }
+    }
+
+    // 2. Second attempt: window.find (if supported and first attempt failed)
+    // This is more robust for text split across multiple inline elements (like strong, em, code)
+    if (!found && typeof (window as any).find === 'function') {
+      // Note: window.find is non-standard but widely supported in browsers for this specific use case
+      const res = (window as any).find(quoteText, false, false, true, false, true, false);
+      if (res) found = true;
+    }
+
+    // 3. Clear selection after 6 seconds
+    if (found) {
+      setTimeout(() => {
+        window.getSelection()?.removeAllRanges();
+      }, 6000);
+    }
+  }, []);
+
+  const markdownComponents = React.useMemo(
+    () => createMarkdownComponents(styles, cx, handleQuoteClick), 
+    [styles, cx, handleQuoteClick]
+  );
 
   // Edit mode state
   const [isEditing, setIsEditing] = useState(false);
@@ -138,11 +213,11 @@ export const MessageItem = memo(function MessageItem({
   const handleCopy = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(message.content);
-      antMessage.success('已複製到剪貼簿');
+      antMessageApi.success('已複製到剪貼簿');
     } catch {
-      antMessage.error('複製失敗');
+      antMessageApi.error('複製失敗');
     }
-  }, [message.content]);
+  }, [message.content, antMessageApi]);
 
   // Handle regenerate
   const handleRegenerate = useCallback(() => {
@@ -183,7 +258,7 @@ export const MessageItem = memo(function MessageItem({
 
   return (
     <div
-      className={cx(styles.messageItem, isUser && styles.userMessage)}
+      className={cx(styles.messageItem, isUser && styles.userMessage, className)}
       data-message-id={message.id}
     >
       {/* User Message: Simple bubble layout */}
@@ -219,11 +294,69 @@ export const MessageItem = memo(function MessageItem({
           ) : (
             /* Normal Display Mode */
             <div className={cx(styles.bubbleWrapper, 'bubbleWrapper')}>
-              <div className={cx(styles.bubble, styles.userBubble)}>
-                <div className={styles.content}>
-                  <p>{message.content}</p>
-                </div>
-              </div>
+              {(() => {
+                // Split content into citation and the rest
+                // Pattern matches one or more lines starting with '>' at the beginning
+                const quoteMatch = message.content.match(/^((?:>[^\n]*(?:\n|$))+)\n*([\s\S]*)$/);
+                
+                if (quoteMatch && isUser) {
+                  const rawCitation = quoteMatch[1];
+                  const remainingText = quoteMatch[2].trim();
+                  const cleanCitation = rawCitation.replace(/^>\s?/gm, '').trim();
+                  
+                  return (
+                    <>
+                      {/* 1. Citation: Outside bubble, transparent */}
+                      <div 
+                        className={cx(styles.quoteBlock, 'interactive-quote')}
+                        onClick={() => handleQuoteClick(cleanCitation)}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <CornerDownRight size={14} className={styles.quoteBlockArrow} />
+                        <div className={styles.quoteBlockContent}>
+                          {cleanCitation.split('\n').map((line, i) => (
+                            <React.Fragment key={i}>
+                              {line}
+                              {i < cleanCitation.split('\n').length - 1 && <br />}
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {/* 2. Main Query: Inside bubble */}
+                      {remainingText && (
+                        <div className={cx(styles.bubble, styles.userBubble)}>
+                          <div className={styles.content}>
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              components={markdownComponents}
+                              disallowedElements={['script', 'iframe', 'object', 'embed']}
+                            >
+                              {remainingText}
+                            </ReactMarkdown>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                }
+
+                // Default: render everything inside bubble
+                return (
+                  <div className={cx(styles.bubble, styles.userBubble)}>
+                    <div className={styles.content}>
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={markdownComponents}
+                        disallowedElements={['script', 'iframe', 'object', 'embed']}
+                      >
+                        {message.content}
+                      </ReactMarkdown>
+                    </div>
+                  </div>
+                );
+              })()}
+              
               <div className={styles.userActionButtons}>
                 <Tooltip title="複製訊息" color="#262626" styles={{ container: { color: '#ffffff' } }}>
                   <button
@@ -250,22 +383,16 @@ export const MessageItem = memo(function MessageItem({
           )}
         </>
       ) : (
-        /* AI Message: Header row + bubble below */
+        /* AI Message: Bubble only */
         <div className={styles.assistantMessageWrapper}>
-          {/* Header: Model Name + Timestamp */}
-          <div className={cx(styles.assistantHeader, 'assistantHeader')}>
-            <span className={styles.modelName}>小紅 (XiaoHong) </span>
-            {!isStreaming && message.createdAt && (
-              <span className={cx(styles.hoverTimestamp, 'hoverTimestamp')}>
-                {formatTime(new Date(message.createdAt))}
-              </span>
-            )}
-          </div>
-
-          {/* Bubble Wrapper - below header */}
+          {/* Bubble Wrapper */}
           <div className={cx(styles.bubbleWrapper, 'bubbleWrapper')}>
             {/* Message Bubble */}
-            <div className={cx(styles.bubble, styles.assistantBubble)}>
+            <div 
+              ref={bubbleRef}
+              className={cx(styles.bubble, styles.assistantBubble)}
+              data-role="assistant-bubble"
+            >
               {/* RAG Status Panel - Should be at the top and only visible before thinking starts */}
               {ragInfo && ragInfo.status !== 'idle' && !thinking?.isThinking && !thinking?.content && !message.reasoning && (
                 <RAGStatusPanel ragInfo={ragInfo} />

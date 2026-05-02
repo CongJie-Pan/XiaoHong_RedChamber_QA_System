@@ -60,6 +60,10 @@ class RouterService:
             return {"action": "ALLOW", "domain": None, "refusal_message": None}
 
         try:
+            import time
+            start_time = time.time()
+            print(f"DEBUG: RouterService checking intent for: {query[:50]}...")
+            
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -68,11 +72,35 @@ class RouterService:
                 ],
                 response_format={"type": "json_object"},
                 temperature=0.1,
-                max_tokens=256
+                max_tokens=256,
+                extra_body={
+                    "top_k": 20, # Recommended for Qwen3.5 series to improve output quality
+                }
             )
             
-            result_str = response.choices[0].message.content
+            duration = time.time() - start_time
+            print(f"DEBUG: RouterService API call took {duration:.2f}s")
+            
+            message = response.choices[0].message
+            result_str = message.content
+            
+            # DeepInfra/Qwen3.5 workaround: JSON is sometimes placed in reasoning_content 
+            # even in non-thinking mode when response_format={"type": "json_object"} is used.
+            # We check multiple possible locations for the data.
+            if not result_str or not result_str.strip():
+                # Priority 1: reasoning_content attribute
+                if hasattr(message, "reasoning_content") and message.reasoning_content:
+                    result_str = message.reasoning_content
+                # Priority 2: model_extra['reasoning_content'] (OpenAI SDK internal storage)
+                elif hasattr(message, "model_extra") and message.model_extra and "reasoning_content" in message.model_extra:
+                    result_str = message.model_extra["reasoning_content"]
+
+            if not result_str or not result_str.strip():
+                print(f"DEBUG: RouterService error - empty response. Message: {message}")
+                return {"action": "ALLOW", "domain": None, "refusal_message": None}
+
             result = json.loads(result_str)
+            print(f"DEBUG: RouterService result parsed: {result.get('action')}")
             
             # Basic validation of the expected keys
             if "action" not in result:
@@ -80,6 +108,6 @@ class RouterService:
             
             return result
         except Exception as e:
-            logger.error(f"RouterService error: {e}")
+            print(f"DEBUG: RouterService Exception: {e}")
             # Fail safe: allow the query if the router fails
             return {"action": "ALLOW", "domain": None, "refusal_message": None}

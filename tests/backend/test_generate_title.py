@@ -15,7 +15,7 @@ async def test_generate_title_missing_api_key():
             req_data = {
                 "messages": [{"role": "user", "content": "你好"}]
             }
-            response = await ac.post("/api/generate_title", json=req_data)
+            response = await ac.post("/api/v1/generate-title", json=req_data)
             
             assert response.status_code == 200
             content = response.text
@@ -53,7 +53,7 @@ async def test_generate_title_success():
                 req_data = {
                     "messages": [{"role": "user", "content": "你好"}, {"role": "assistant", "content": "你好！"}]
                 }
-                response = await ac.post("/api/generate_title", json=req_data)
+                response = await ac.post("/api/v1/generate-title", json=req_data)
                 
                 assert response.status_code == 200
                 content = response.text
@@ -81,7 +81,7 @@ async def test_generate_title_api_error():
                 req_data = {
                     "messages": [{"role": "user", "content": "你好"}]
                 }
-                response = await ac.post("/api/generate_title", json=req_data)
+                response = await ac.post("/api/v1/generate-title", json=req_data)
                 
                 assert response.status_code == 200
                 content = response.text

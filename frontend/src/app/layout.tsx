@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { AntdRegistry } from '@ant-design/nextjs-registry';
-import { ConfigProvider, theme } from 'antd';
+import { ConfigProvider, theme, App } from 'antd';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import './globals.css';
 
@@ -49,7 +49,9 @@ export default function RootLayout({
                 },
               }}
             >
-              {children}
+              <App>
+                {children}
+              </App>
             </ConfigProvider>
           </AntdRegistry>
         </ErrorBoundary>

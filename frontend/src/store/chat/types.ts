@@ -79,7 +79,7 @@ export interface ChatState {
 
   // RAG Visualization State
   /** Current phase of the RAG retrieval pipeline */
-  ragStatus: 'idle' | 'retrieving' | 'searching_dense' | 'searching_sparse' | 'reranking' | 'sources_ready' | 'generating' | 'done';
+  ragStatus: 'idle' | 'routing' | 'retrieving' | 'searching_dense' | 'searching_sparse' | 'reranking' | 'sources_ready' | 'generating' | 'done';
   /** RAG domain-specific status message */
   ragMessage: string;
   /** Detailed RAG sources payload containing snippets and scores */
@@ -146,7 +146,7 @@ export interface ChatActions {
 
   // RAG Visualization
   /** Set the RAG retrieval status and message */
-  setRagStatus: (status: 'idle' | 'retrieving' | 'searching_dense' | 'searching_sparse' | 'reranking' | 'sources_ready' | 'generating' | 'done', message?: string) => void;
+  setRagStatus: (status: 'idle' | 'routing' | 'retrieving' | 'searching_dense' | 'searching_sparse' | 'reranking' | 'sources_ready' | 'generating' | 'done', message?: string) => void;
   /** Set structured RAG sources */
   setRagSources: (sources: CitationSource[]) => void;
 }

@@ -6,9 +6,10 @@
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Send, Square, Brain, Database, Quote, X } from 'lucide-react';
+import { Send, Square, Brain, Database, Quote, X, CornerDownRight } from 'lucide-react';
 import { message, Tooltip } from 'antd';
 import { useChatStore } from '@/store/chat';
+import { useConversationStore } from '@/store/conversation';
 import { useStyles } from './styles';
 
 /** Maximum allowed message length */
@@ -50,6 +51,8 @@ export function ChatInput({
   const [value, setValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
+  const activeConversationId = useConversationStore((state) => state.activeConversationId);
+
   // Connect to global state for mode togglers
   const useRag = useChatStore((state) => state.useRag);
   const forceThink = useChatStore((state) => state.forceThink);
@@ -86,6 +89,12 @@ export function ChatInput({
     }
   }, [disabled]);
 
+  // Clear input when conversation changes
+  useEffect(() => {
+    setValue('');
+    setQuotedText(null);
+  }, [activeConversationId, setQuotedText]);
+
   const handleSend = useCallback(() => {
     const trimmedValue = value.trim();
 
@@ -105,7 +114,11 @@ export function ChatInput({
     // Construct final message with quote if exists
     let finalMessage = trimmedValue;
     if (quotedText) {
-      finalMessage = `> ${quotedText}\n\n${trimmedValue}`;
+      const formattedQuote = quotedText
+        .split('\n')
+        .map(line => (line.startsWith('>') ? line : `> ${line}`))
+        .join('\n');
+      finalMessage = `${formattedQuote}\n\n${trimmedValue}`;
     }
 
     if (!finalMessage.trim()) {
@@ -148,7 +161,7 @@ export function ChatInput({
       {/* Quote Preview */}
       {quotedText && (
         <div className={styles.quotePreview}>
-          <Quote size={14} className={cx(styles.quoteIcon, 'text-[#A82222]')} />
+          <CornerDownRight size={14} className={styles.quoteArrow} />
           <div className={styles.quoteContent}>{quotedText}</div>
           <button
             className={styles.quoteClose}

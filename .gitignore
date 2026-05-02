@@ -59,6 +59,7 @@ frontend/node_modules
 /temp
 /docs/worklog
 
+
 # Python
 **/__pycache__/
 *.pyc

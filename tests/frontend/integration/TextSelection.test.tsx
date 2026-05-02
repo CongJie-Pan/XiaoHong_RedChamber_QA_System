@@ -52,14 +52,14 @@ describe('Text Selection Integration', () => {
     // 1. Simulate selection
     (window as any).triggerSelection('紅樓夢', { top: 100, left: 100, width: 50, height: 20 });
 
-    // 2. Verify toolbar appears
-    expect(await screen.findByLabelText('問小紅')).toBeDefined();
+    // 2. Verify toolbar appears with correct label
+    expect(await screen.findByText('問小紅(引用)')).toBeDefined();
 
     // 3. Click "Ask XiaoHong" (Quote)
-    fireEvent.click(screen.getByLabelText('問小紅'));
+    fireEvent.click(screen.getByText('問小紅(引用)'));
 
     // 4. Verify toolbar disappears and quote appears in input
-    expect(screen.queryByLabelText('問小紅')).toBeNull();
+    expect(screen.queryByText('問小紅(引用)')).toBeNull();
     expect(screen.getByText('紅樓夢')).toBeDefined();
 
     // 5. Type question and send
@@ -83,7 +83,7 @@ describe('Text Selection Integration', () => {
     (window as any).triggerSelection('林黛玉', { top: 100, left: 100, width: 50, height: 20 });
 
     // 2. Click "Explain"
-    fireEvent.click(await screen.findByLabelText('幫我解釋'));
+    fireEvent.click(await screen.findByText('幫我解釋'));
 
     // 3. Verify sendMessage called immediately
     const lastCall = (sendMessage as any).mock.calls[0];

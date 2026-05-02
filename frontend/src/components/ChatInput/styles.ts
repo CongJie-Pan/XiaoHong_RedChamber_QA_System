@@ -17,7 +17,7 @@ export const useStyles = createStyles(({ css, token }) => ({
     gap: 0;
     padding: 12px 20px 10px;
     background: #2a2a2a;
-    border: 2px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 24px;
     max-width: 800px;
     width: 90%;
@@ -26,8 +26,8 @@ export const useStyles = createStyles(({ css, token }) => ({
     transition: all 0.2s ease;
 
     &:focus-within {
-      border-color: #A82222;
-      box-shadow: 0 0 0 2px rgba(168, 34, 34, 0.2);
+      border-color: #ff4d4f;
+      box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.2);
     }
   `,
 
@@ -35,14 +35,14 @@ export const useStyles = createStyles(({ css, token }) => ({
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 8px 12px;
-    margin-bottom: 8px;
-    background: rgba(168, 34, 34, 0.1);
-    border-left: 3px solid #A82222;
-    border-radius: 8px;
+    padding: 8px 16px;
+    margin-bottom: 10px;
+    background: #333333;
+    border-radius: 20px;
     color: #f0f0f0;
-    font-size: 14px;
+    font-size: 15px;
     position: relative;
+    max-width: 100%;
     animation: slideDown 0.2s ease-out;
 
     @keyframes slideDown {
@@ -51,9 +51,11 @@ export const useStyles = createStyles(({ css, token }) => ({
     }
   `,
 
-  quoteIcon: css`
+  quoteArrow: css`
+    color: #ff4d4f;
     flex-shrink: 0;
-    opacity: 0.7;
+    width: 16px;
+    height: 16px;
   `,
 
   quoteContent: css`
@@ -61,13 +63,16 @@ export const useStyles = createStyles(({ css, token }) => ({
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    opacity: 0.8;
+    opacity: 0.9;
+    color: #ffffff;
+    font-weight: 500;
   `,
 
   quoteClose: css`
     flex-shrink: 0;
-    width: 20px;
-    height: 20px;
+    margin-left: 4px;
+    width: 18px;
+    height: 18px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -92,14 +97,14 @@ export const useStyles = createStyles(({ css, token }) => ({
     padding: 8px 0;
     border: none;
     background: transparent;
-    color: #f0f0f0;
+    color: #ffffff;
     font-size: 16px;
     line-height: 1.5;
     resize: none;
     outline: none;
 
     &::placeholder {
-      color: rgba(255, 255, 255, 0.35);
+      color: rgba(255, 255, 255, 0.5);
     }
 
     &:disabled {
@@ -133,7 +138,7 @@ export const useStyles = createStyles(({ css, token }) => ({
   // Faint character counter
   charCount: css`
     font-size: 11px;
-    color: ${token.colorTextQuaternary};
+    color: rgba(255, 255, 255, 0.45);
     margin-left: 4px;
   `,
 
@@ -187,31 +192,31 @@ export const useStyles = createStyles(({ css, token }) => ({
     gap: 5px;
     padding: 4px 12px;
     height: 32px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 16px;
     background: transparent;
-    color: rgba(255, 255, 255, 0.5);
+    color: rgba(255, 255, 255, 0.65);
     font-size: 13px;
     cursor: pointer;
     transition: all 0.2s;
     white-space: nowrap;
     &:hover {
       color: #ffffff !important;
-      background: #262626 !important;
-      border-color: rgba(255, 255, 255, 0.3) !important;
+      background: #3a3a3a !important;
+      border-color: rgba(255, 255, 255, 0.4) !important;
     }
 `,
 
 toggleButtonActive: css`
 color: #ffffff;
-border-color: #8B1E1E;
-background: rgba(139, 30, 30, 0.2);
+border-color: #ff4d4f;
+background: rgba(255, 77, 79, 0.2);
 font-weight: 500;
 
 &:hover {
-  background: #000000 !important;
+  background: rgba(255, 77, 79, 0.3) !important;
   color: #ffffff !important;
-  border-color: rgba(255, 255, 255, 0.3) !important;
+  border-color: #ff7875 !important;
 }
 `,
 

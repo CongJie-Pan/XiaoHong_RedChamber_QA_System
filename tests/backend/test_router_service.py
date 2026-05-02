@@ -54,3 +54,28 @@ async def test_router_service_fail_safe():
         result = await service.check_query_intent("任何問題")
         
         assert result["action"] == "ALLOW"
+
+@pytest.mark.asyncio
+async def test_router_service_reasoning_content():
+    # Test fallback to reasoning_content (DeepInfra behavior)
+    with patch('src.main.python.services.router_service.AsyncOpenAI') as mock_openai:
+        mock_client = mock_openai.return_value
+        mock_client.chat.completions.create = AsyncMock()
+        
+        # Mock message with empty content but populated reasoning_content
+        mock_message = AsyncMock()
+        mock_message.content = ""
+        mock_message.reasoning_content = '{"action": "DENY", "domain": "數學", "refusal_message": "拒絕數學問題"}'
+        
+        mock_response = AsyncMock()
+        mock_response.choices = [
+            AsyncMock(message=mock_message)
+        ]
+        mock_client.chat.completions.create.return_value = mock_response
+        
+        service = RouterService(api_key="test_key")
+        result = await service.check_query_intent("x2+87+y3 = ?")
+        
+        assert result["action"] == "DENY"
+        assert result["domain"] == "數學"
+        assert result["refusal_message"] == "拒絕數學問題"

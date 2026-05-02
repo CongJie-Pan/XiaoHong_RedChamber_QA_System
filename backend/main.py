@@ -108,7 +108,8 @@ try:
         faiss_index_path=latest_faiss_idx,
         faiss_metadata_path=latest_faiss_meta,
         bm25_index_dir=str(bm25_dir),
-        embedding_model_path="api", # Changed this to API since local models were skipped
+        embedding_model_path="api", 
+        reranker_model_path="api", # Added this back to enable high-quality reranking via API
         top_k=5,
         rrf_k=60,
         score_threshold=0.3,
@@ -148,7 +149,7 @@ class ChatRequest(BaseModel):
 class TitleRequest(BaseModel):
     messages: List[Dict[str, str]]
 
-@app.post("/api/generate_title")
+@app.post("/api/v1/generate-title")
 async def generate_title_endpoint(request: Request, title_req: TitleRequest):
     """
     Generate a conversation title using OpenRouter (qwen/qwen-2.5-7b-instruct).
@@ -169,11 +170,11 @@ async def generate_title_endpoint(request: Request, title_req: TitleRequest):
         )
 
         system_prompt = "你是一個助理，請根據以下對話內容，總結出一個簡短的繁體中文對話標題（不超過 10 個字，不要加引號或其他標點符號）。"
-        
+
         # We only need the first user message and assistant reply to generate a title
         # Filter messages to ensure we don't send too much context
         filtered_messages = [msg for msg in title_req.messages if msg["role"] in ["user", "assistant"]]
-        
+
         full_messages = [
             {"role": "system", "content": system_prompt}
         ] + filtered_messages
@@ -191,18 +192,18 @@ async def generate_title_endpoint(request: Request, title_req: TitleRequest):
             async for chunk in response:
                 if await request.is_disconnected():
                     break
-                
+
                 if not chunk.choices:
                     continue
-                    
+
                 content = chunk.choices[0].delta.content
                 if content:
                     yield f"data: {json.dumps({'content': content}, ensure_ascii=False)}\n\n"
-                    
+
         except Exception as e:
             print(f"Title generation error: {e}")
             yield f"data: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
-        
+
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(
@@ -215,19 +216,22 @@ async def generate_title_endpoint(request: Request, title_req: TitleRequest):
         }
     )
 
-@app.post("/api/retrieve")
-async def retrieve_endpoint(req: RetrieveRequest):
+@app.get("/api/v1/retrieve")
+async def retrieve_endpoint(query: str, top_k: int = 5, offset: int = 0, limit: int = 10):
     """
     Search endpoint that returns pure JSON snippets.
     Suitable for frontend debug panels or citation references.
+    Includes pagination support (offset/limit).
     """
     loop = asyncio.get_running_loop()
     # TODO: In future iterations, replace this with actual faiss_utils retrieval logic in the thread pool.
-    
-    mock_results = [{"text": "dummy content from dense search", "score": 0.99}]
-    return {"results": mock_results}
 
-@app.post("/api/stream")
+    mock_results = [{"text": "dummy content from dense search", "score": 0.99}]
+    # Apply mock pagination
+    paginated_results = mock_results[offset : offset + limit]
+    return {"results": paginated_results}
+
+@app.post("/api/v1/stream")
 async def stream_endpoint(request: Request, chat_req: ChatRequest):
     """
     Core streaming endpoint for textual generation.
@@ -238,11 +242,28 @@ async def stream_endpoint(request: Request, chat_req: ChatRequest):
     async def generate():
         try:
             # 0. Gatekeeper / Smart Routing phase (Absolute First Layer)
+            # Yield an initial status to trigger the loading spinner (message is empty to avoid text display)
+            yield f"event: status\ndata: {json.dumps({'status': 'routing', 'message': ''}, ensure_ascii=False)}\n\n"
+
             # Detect if the query is Out-of-Domain (OOD) before any other processing
             last_user_msg = next((m["content"] for m in reversed(chat_req.messages) if m["role"] == "user"), "")
             if last_user_msg and router_service:
-                intent_result = await router_service.check_query_intent(last_user_msg)
+                # Use a task to run the router while occasionally yielding a heartbeat if it takes too long
+                router_task = asyncio.create_task(router_service.check_query_intent(last_user_msg))
+                
+                while not router_task.done():
+                    # Wait for a bit, or until task finishes
+                    done, pending = await asyncio.wait([router_task], timeout=5.0)
+                    if not done:
+                        # Task still running after 5s, send heartbeat to keep connection alive
+                        yield f": heartbeat\n\n"
+                
+                intent_result = await router_task
+                
                 if intent_result.get("action") == "DENY":
+                    # Update status to refusal
+                    yield f"event: status\ndata: {json.dumps({'status': 'refused', 'message': '❌ 非相關領域問題'}, ensure_ascii=False)}\n\n"
+                    
                     refusal = intent_result.get("refusal_message") or "小紅目前僅能回答關於《紅樓夢》與國學相關的問題，請換個問題試試看喔！"
                     chunk_data = {
                         "choices": [
@@ -295,7 +316,15 @@ async def stream_endpoint(request: Request, chat_req: ChatRequest):
                                 # Use an executor to avoid blocking the event loop with synchronous RAG operations
                                 gen = rag_service.retrieve_with_events(last_user_msg)
                                 while True:
-                                    event = await asyncio.get_running_loop().run_in_executor(_thread_pool, next, gen, None)
+                                    # Use a task to run the executor while occasionally yielding a heartbeat
+                                    rag_task = asyncio.get_running_loop().run_in_executor(_thread_pool, next, gen, None)
+                                    
+                                    while not rag_task.done():
+                                        done, pending = await asyncio.wait([rag_task], timeout=5.0)
+                                        if not done:
+                                            yield f": heartbeat\n\n"
+                                    
+                                    event = await rag_task
                                     if event is None:
                                         break
                                     if event["type"] == "status":
@@ -306,8 +335,18 @@ async def stream_endpoint(request: Request, chat_req: ChatRequest):
                                         
                                 if context_results_obj:
                                     # Layer 2: Rerank Score Fallback (Guardrail)
+                                    # Detect if results were reranked to apply appropriate threshold
+                                    is_reranked = False
+                                    if context_results_obj.final_results and len(context_results_obj.final_results) > 0:
+                                        # If reranker is active, results usually have a 'reranker_score' attribute
+                                        first_res = context_results_obj.final_results[0]
+                                        is_reranked = hasattr(first_res, 'reranker_score') or (isinstance(first_res, dict) and 'reranker_score' in first_res)
+                                    
+                                    # Use a much lower threshold for RRF scores (max ~0.033) vs Reranker scores (0.0-1.0)
+                                    effective_threshold = rag_service.score_threshold if is_reranked else 0.005
+                                    
                                     # If RAG is enabled but no document score exceeds the threshold, trigger refusal
-                                    if context_results_obj.highest_score < rag_service.score_threshold:
+                                    if context_results_obj.highest_score < effective_threshold:
                                         refusal = "小紅查閱了相關古籍文獻，暫時沒能找到與您問題直接相關的內容。為了保證回答的準確性，小紅建議您換個方式提問，或是詢問關於《紅樓夢》與國學的其他問題喔！ 😊"
                                         chunk_data = {
                                             "choices": [
@@ -502,7 +541,24 @@ async def stream_endpoint(request: Request, chat_req: ChatRequest):
             yield "data: [DONE]\n\n"
             
         except asyncio.CancelledError:
+            print("DEBUG: Stream cancelled by client (asyncio.CancelledError)")
             pass
+        except Exception as e:
+            print(f"DEBUG: Critical Stream Error: {e}")
+            import traceback
+            traceback.print_exc()
+            error_msg = f"\n\n**[系統錯誤]** 發生未預期錯誤：{str(e)}"
+            chunk_data = {
+                "choices": [
+                    {
+                        "delta": {"content": error_msg},
+                        "index": 0,
+                        "finish_reason": "error",
+                    }
+                ]
+            }
+            yield f"data: {json.dumps(chunk_data, ensure_ascii=False)}\n\n"
+            yield "data: [DONE]\n\n"
 
     return StreamingResponse(
         generate(), 

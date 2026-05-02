@@ -222,7 +222,7 @@ export async function sendMessage(
           chatStore.setCitations(citationUrls);
         },
 
-        onStatus: (status: 'idle' | 'retrieving' | 'searching_dense' | 'searching_sparse' | 'reranking' | 'sources_ready' | 'generating' | 'done', message: string) => {
+        onStatus: (status: 'idle' | 'routing' | 'retrieving' | 'searching_dense' | 'searching_sparse' | 'reranking' | 'sources_ready' | 'generating' | 'done', message: string) => {
           chatStore.setRagStatus(status, message);
         },
 
@@ -388,18 +388,16 @@ export function isStreamActive(): boolean {
 export async function loadMessages(conversationId: string): Promise<void> {
   const chatStore = useChatStore.getState();
 
-  // Optimization: If we already have messages for this conversation, don't reload
-  // This avoids race conditions when starting a new conversation where 
-  // sendMessage has already populated the store.
-  if (
-    chatStore.messages.length > 0 && 
-    chatStore.messages.some(msg => msg.conversationId === conversationId)
-  ) {
-    return;
-  }
+  // 1. IMMEDIATELY clear everything to provide instant feedback and prevent persistence
+  // This clears the messages, citations, ragSources, and thinking content
+  chatStore.clearMessages();
+  chatStore.resetStreamingState();
 
   try {
+    // 2. Load fresh records from database
     const messages = await databaseService.message.getByConversationId(conversationId);
+    
+    // 3. Set the new messages only after they are successfully retrieved
     chatStore.setMessages(messages);
   } catch (error) {
     const err = normalizeError(error);
@@ -420,7 +418,7 @@ export async function startNewConversation(): Promise<string> {
   const chatStore = useChatStore.getState();
   const conversationStore = useConversationStore.getState();
 
-  // Clear current messages
+  // Aggressively clear UI state
   chatStore.clearMessages();
   chatStore.resetStreamingState();
 
@@ -440,7 +438,9 @@ export async function switchConversation(conversationId: string): Promise<void> 
   const chatStore = useChatStore.getState();
   const conversationStore = useConversationStore.getState();
 
-  // Reset streaming state
+  // Aggressively clear messages and reset state before switching
+  // This ensures the UI is blank while the new messages are loading
+  chatStore.clearMessages();
   chatStore.resetStreamingState();
 
   // Select conversation
@@ -455,20 +455,22 @@ export async function switchConversation(conversationId: string): Promise<void> 
  * @param conversationId - Conversation ID to delete
  */
 export async function deleteConversation(conversationId: string): Promise<void> {
-  // Cancel any ongoing stream if deleting the active conversation
-  const initialState = useConversationStore.getState();
-  const wasActiveConversation = initialState.activeConversationId === conversationId;
+  const conversationStore = useConversationStore.getState();
+  const chatStore = useChatStore.getState();
+  const wasActiveConversation = conversationStore.activeConversationId === conversationId;
 
+  // If deleting the active conversation, clear UI immediately
   if (wasActiveConversation) {
     await cancelCurrentStream();
+    chatStore.clearMessages();
+    chatStore.resetStreamingState();
   }
 
   // Delete conversation (this will update activeConversationId to null if it was active)
-  await initialState.deleteConversation(conversationId);
+  await conversationStore.deleteConversation(conversationId);
 
-  // If this was the active conversation, clear messages
+  // Double check cleanup if it was the active conversation
   if (wasActiveConversation) {
-    const chatStore = useChatStore.getState();
     chatStore.clearMessages();
     chatStore.resetStreamingState();
   }
@@ -581,7 +583,7 @@ export async function regenerateMessage(messageId: string): Promise<void> {
           chatStore.setCitations(citationUrls);
         },
 
-        onStatus: (status: 'idle' | 'retrieving' | 'searching_dense' | 'searching_sparse' | 'reranking' | 'sources_ready' | 'generating' | 'done', message: string) => {
+        onStatus: (status: 'idle' | 'routing' | 'retrieving' | 'searching_dense' | 'searching_sparse' | 'reranking' | 'sources_ready' | 'generating' | 'done', message: string) => {
           chatStore.setRagStatus(status, message);
         },
 
@@ -787,7 +789,7 @@ export async function editUserMessage(
           chatStore.setCitations(citationUrls);
         },
 
-        onStatus: (status: 'idle' | 'retrieving' | 'searching_dense' | 'searching_sparse' | 'reranking' | 'sources_ready' | 'generating' | 'done', message: string) => {
+        onStatus: (status: 'idle' | 'routing' | 'retrieving' | 'searching_dense' | 'searching_sparse' | 'reranking' | 'sources_ready' | 'generating' | 'done', message: string) => {
           chatStore.setRagStatus(status, message);
         },
 

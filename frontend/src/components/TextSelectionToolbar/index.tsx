@@ -2,7 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { Copy, Quote, Sparkles } from 'lucide-react';
-import { Tooltip, message as antMessage } from 'antd';
+import { Tooltip, App } from 'antd';
 import { useChatStore } from '@/store/chat';
 import { sendMessage } from '@/services/chat';
 import { useTextSelection } from '@/hooks/useTextSelection';
@@ -13,7 +13,8 @@ import { useStyles } from './styles';
  * Floating toolbar for text selection actions
  */
 export function TextSelectionToolbar() {
-  const { styles } = useStyles();
+  const { styles, cx } = useStyles();
+  const { message } = App.useApp();
   const { text, rect, clearSelection } = useTextSelection();
   const setQuotedText = useChatStore((state) => state.setQuotedText);
 
@@ -21,8 +22,11 @@ export function TextSelectionToolbar() {
     if (!rect) return null;
     
     // Position above the selection
-    const top = rect.top - 48;
-    const left = rect.left + rect.width / 2 - 60; // Approximate half width of toolbar
+    const top = rect.top - 52;
+    // With labels, the toolbar is wider. Centering logic:
+    // rect.left + rect.width / 2 is the center of selection.
+    // We adjust based on estimated toolbar width (now around 280px)
+    const left = rect.left + rect.width / 2 - 140; 
     
     return {
       top: Math.max(8, top),
@@ -33,10 +37,10 @@ export function TextSelectionToolbar() {
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(text);
-      antMessage.success('已複製到剪貼簿');
+      message.success('已複製到剪貼簿');
       clearSelection();
     } catch {
-      antMessage.error('複製失敗');
+      message.error('複製失敗');
     }
   };
 
@@ -56,32 +60,31 @@ export function TextSelectionToolbar() {
 
   return (
     <div
-      className={styles.toolbar}
+      className={cx(styles.toolbar, 'selection-toolbar')}
       style={{
         top: position.top,
         left: position.left,
       }}
       onMouseDown={(e) => e.preventDefault()} // Prevent losing selection
     >
-      <Tooltip title="複製" color="#262626">
-        <button className={styles.button} onClick={handleCopy} aria-label="複製">
-          <Copy size={16} />
-        </button>
-      </Tooltip>
+      <button className={styles.button} onClick={handleCopy} aria-label="複製">
+        <Copy size={14} />
+        <span className={styles.label}>複製</span>
+      </button>
       
       <div className={styles.divider} />
       
-      <Tooltip title="問小紅 (引用)" color="#262626">
-        <button className={styles.button} onClick={handleQuote} aria-label="問小紅">
-          <Quote size={16} />
-        </button>
-      </Tooltip>
+      <button className={styles.button} onClick={handleQuote} aria-label="問小紅">
+        <Quote size={14} />
+        <span className={styles.label}>問小紅(引用)</span>
+      </button>
 
-      <Tooltip title="幫我解釋" color="#262626">
-        <button className={styles.button} onClick={handleExplain} aria-label="幫我解釋">
-          <Sparkles size={16} />
-        </button>
-      </Tooltip>
+      <div className={styles.divider} />
+
+      <button className={styles.button} onClick={handleExplain} aria-label="幫我解釋">
+        <Sparkles size={14} />
+        <span className={styles.label}>幫我解釋</span>
+      </button>
     </div>
   );
 }

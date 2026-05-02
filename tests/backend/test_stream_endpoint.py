@@ -74,7 +74,7 @@ async def test_sse_streaming_sequence_with_rag():
                     "messages": [{"role": "user", "content": "賈寶玉是誰？"}],
                     "use_rag": True
                 }
-                response = await ac.post("/api/stream", json=req_data)
+                response = await ac.post("/api/v1/stream", json=req_data)
                 
                 assert response.status_code == 200
                 content = response.text
@@ -106,14 +106,19 @@ async def test_gatekeeper_rejection():
                 "messages": [{"role": "user", "content": "1+1等於多少？"}],
                 "use_rag": False
             }
-            response = await ac.post("/api/stream", json=req_data)
+            response = await ac.post("/api/v1/stream", json=req_data)
             
             assert response.status_code == 200
             content = response.text
             
             # Check that the refusal message is in the content
             assert refusal_msg in content
-            # Ensure no RAG or Metadata events were sent
+            
+            # Now we yield a 'routing' status immediately, so we should see event: status
+            assert "event: status" in content
+            assert '"status": "routing"' in content
+            assert '"status": "refused"' in content
+            
+            # Ensure no Metadata events were sent after rejection
             assert "event: metadata" not in content
-            assert "event: status" not in content
             assert "data: [DONE]" in content

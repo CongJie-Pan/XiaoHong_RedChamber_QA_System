@@ -73,6 +73,16 @@ export const useStyles = createStyles(({ token, css }) => ({
     color: ${token.colorSuccess};
   `,
 
+  spinnerWrapper: css`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  `,
+
+  routingIcon: css`
+    color: ${token.colorPrimary};
+  `,
+
   statusText: css`
     font-size: 16px;
     color: ${token.colorText};

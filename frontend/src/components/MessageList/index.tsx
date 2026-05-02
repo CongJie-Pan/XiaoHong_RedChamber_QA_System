@@ -161,6 +161,12 @@ export function MessageList({ className, onRegenerate, onEdit, onSelectSuggestio
       {messages.map((message, index) => {
         const isCurrentStreaming = message.id === currentStreamingId;
         const isLast = index === messages.length - 1;
+        
+        // Detect if this is an assistant message following a user message
+        const isAssistantAfterUser = 
+          message.role === 'assistant' && 
+          index > 0 && 
+          messages[index - 1].role === 'user';
 
         return (
           <MessageItem
@@ -168,6 +174,7 @@ export function MessageList({ className, onRegenerate, onEdit, onSelectSuggestio
             message={message}
             isStreaming={isCurrentStreaming && isStreaming}
             isLast={isLast}
+            className={isAssistantAfterUser ? 'assistant-after-user' : ''}
             onSelectSuggestion={onSelectSuggestion}
             thinking={
               isCurrentStreaming

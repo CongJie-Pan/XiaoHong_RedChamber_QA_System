@@ -963,8 +963,12 @@ class RAGService:
         sanitized_count = 0
         for item in top_results:
             # Apply threshold filter for final injection
+            # Adapt threshold based on whether we have reranker scores or raw RRF scores
+            is_reranked = "reranker_score" in item
+            effective_threshold = self.score_threshold if is_reranked else 0.005
+            
             current_score = item.get("reranker_score", item.get("rrf_score", 0.0))
-            if current_score < self.score_threshold:
+            if current_score < effective_threshold:
                 continue
                 
             clean_text = sanitize_chunk(item["text"])

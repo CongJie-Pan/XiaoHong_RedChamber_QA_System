@@ -7,7 +7,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { Menu, X, AlertCircle } from 'lucide-react';
-import { message as antMessage } from 'antd';
+import { App } from 'antd';
 import { useChatStore, chatSelectors } from '@/store/chat';
 import { useConversationStore, conversationSelectors } from '@/store/conversation';
 import { sendMessage, loadMessages, initializeChatService, cancelCurrentStream, regenerateMessage, editUserMessage } from '@/services/chat';
@@ -68,6 +68,7 @@ export interface ChatContainerProps {
  */
 export function ChatContainer({ className }: ChatContainerProps) {
   const { styles, cx } = useStyles();
+  const { message: antMessageApi } = App.useApp();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Get state from stores
@@ -91,9 +92,15 @@ export function ChatContainer({ className }: ChatContainerProps) {
 
   // Load messages when conversation changes
   useEffect(() => {
-    if (activeConversationId) {
-      loadMessages(activeConversationId);
+    if (!activeConversationId) {
+      // Clear messages when no conversation is active
+      useChatStore.getState().clearMessages();
+      useChatStore.getState().resetStreamingState();
     }
+    // Note: We don't call loadMessages(activeConversationId) here because
+    // it's already handled by switchConversation() and sendMessage()
+    // calls. Calling it here causes a race condition that clears
+    // the streaming state for new conversations.
   }, [activeConversationId]);
 
   // Handle sending message with improved error handling
@@ -109,13 +116,13 @@ export function ChatContainer({ className }: ChatContainerProps) {
 
         // Show appropriate notification
         if (isRetryable) {
-          antMessage.error({
+          antMessageApi.error({
             content: (
               <span>
                 {errorMsg}
                 <button
                   onClick={() => {
-                    antMessage.destroy('send-error');
+                    antMessageApi.destroy('send-error');
                     retryableSend(content); // Retry with same content
                   }}
                   style={{
@@ -136,7 +143,7 @@ export function ChatContainer({ className }: ChatContainerProps) {
             key: 'send-error',
           });
         } else {
-          antMessage.error({
+          antMessageApi.error({
             content: errorMsg,
             duration: 5,
             key: 'send-error',
@@ -144,7 +151,7 @@ export function ChatContainer({ className }: ChatContainerProps) {
         }
       }
     },
-    [activeConversationId]
+    [activeConversationId, antMessageApi]
   );
 
   // Handle conversation selection
@@ -187,9 +194,9 @@ export function ChatContainer({ className }: ChatContainerProps) {
       await regenerateMessage(messageId);
     } catch (err) {
       console.error('Failed to regenerate message:', err);
-      antMessage.error('重新生成失敗，請稍後再試');
+      antMessageApi.error('重新生成失敗，請稍後再試');
     }
-  }, []);
+  }, [antMessageApi]);
 
   // Handle edit user message
   const handleEdit = useCallback(async (messageId: string, newContent: string) => {
@@ -197,9 +204,9 @@ export function ChatContainer({ className }: ChatContainerProps) {
       await editUserMessage(messageId, newContent);
     } catch (err) {
       console.error('Failed to edit message:', err);
-      antMessage.error('編輯訊息失敗，請稍後再試');
+      antMessageApi.error('編輯訊息失敗，請稍後再試');
     }
-  }, []);
+  }, [antMessageApi]);
 
   return (
     <div className={cx(styles.container, className)}>

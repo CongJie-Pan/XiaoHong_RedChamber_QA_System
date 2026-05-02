@@ -5,6 +5,7 @@ import { TextSelectionToolbar } from '@/components/TextSelectionToolbar';
 import { useTextSelection } from '@/hooks/useTextSelection';
 import { useChatStore } from '@/store/chat';
 import { sendMessage } from '@/services/chat';
+import { App } from 'antd';
 
 // Mock the hook and other modules
 vi.mock('@/hooks/useTextSelection');
@@ -14,6 +15,27 @@ vi.mock('@/store/chat', () => ({
 vi.mock('@/services/chat', () => ({
   sendMessage: vi.fn(),
 }));
+
+// Mock Ant Design App.useApp
+const mockMessage = {
+  success: vi.fn(),
+  error: vi.fn(),
+  warning: vi.fn(),
+  info: vi.fn(),
+};
+
+vi.mock('antd', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('antd')>();
+  return {
+    ...actual,
+    App: {
+      ...actual.App,
+      useApp: () => ({
+        message: mockMessage,
+      }),
+    },
+  };
+});
 
 describe('TextSelectionToolbar', () => {
   const mockClearSelection = vi.fn();

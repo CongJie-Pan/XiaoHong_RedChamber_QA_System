@@ -10,6 +10,7 @@ import Image from 'next/image';
 import { Spin } from 'antd';
 import { Plus, MessageSquare, Trash2, MessagesSquare, PanelLeftClose } from 'lucide-react';
 import { useConversationStore } from '@/store/conversation';
+import { switchConversation, deleteConversation as deleteConversationService } from '@/services/chat';
 import { useStyles } from './styles';
 
 export interface ConversationListProps {
@@ -40,8 +41,6 @@ export function ConversationList({
   const conversations = useConversationStore((state) => state.conversations);
   const activeId = useConversationStore((state) => state.activeConversationId);
   const isLoading = useConversationStore((state) => state.isLoading);
-  const selectConversation = useConversationStore((state) => state.selectConversation);
-  const deleteConversation = useConversationStore((state) => state.deleteConversation);
   const streamingTitles = useConversationStore((state) => state.streamingTitles);
 
   const handleNew = useCallback(async () => {
@@ -51,20 +50,20 @@ export function ConversationList({
   }, [onNew]);
 
   const handleSelect = useCallback(
-    (id: string) => {
-      selectConversation(id);
+    async (id: string) => {
+      await switchConversation(id);
       onSelect?.(id);
     },
-    [selectConversation, onSelect]
+    [onSelect]
   );
 
   const handleDelete = useCallback(
     async (id: string, e: React.MouseEvent) => {
       e.stopPropagation();
-      await deleteConversation(id);
+      await deleteConversationService(id);
       onDelete?.(id);
     },
-    [deleteConversation, onDelete]
+    [onDelete]
   );
 
   /**
