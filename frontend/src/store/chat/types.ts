@@ -138,6 +138,9 @@ export interface ChatActions {
   /** Reset all streaming state */
   resetStreamingState: () => void;
 
+  /** Restore streaming state when switching back to an active stream */
+  restoreStreamingState: (state: Partial<ChatState>) => void;
+
   // Mode Toggles
   /** Toggle RAG mode */
   toggleRag: () => void;

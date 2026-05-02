@@ -275,6 +275,10 @@ export const useChatStore = create<ChatStore>((set) => ({
   },
 
   // Reset
+  restoreStreamingState: (partialState) => {
+    set((state) => ({ ...state, ...partialState }));
+  },
+
   resetStreamingState: () => {
     set({
       isStreaming: false,
