@@ -4,10 +4,10 @@
  */
 
 /**
- * Custom error for Perplexity API errors
+ * Custom error for Chat Stream API errors
  * Includes status code and response body for debugging
  */
-export class PerplexityAPIError extends Error {
+export class ChatStreamError extends Error {
   constructor(
     message: string,
     public statusCode: number,
@@ -15,10 +15,10 @@ export class PerplexityAPIError extends Error {
     public cause?: Error
   ) {
     super(message);
-    this.name = 'PerplexityAPIError';
+    this.name = 'ChatStreamError';
     // Maintain proper stack trace in V8 environments
     if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, PerplexityAPIError);
+      Error.captureStackTrace(this, ChatStreamError);
     }
   }
 }
@@ -101,7 +101,7 @@ export function formatErrorForLogging(
     stack: error.stack,
   };
 
-  if (error instanceof PerplexityAPIError) {
+  if (error instanceof ChatStreamError) {
     formatted.statusCode = error.statusCode;
     formatted.responseBody = error.responseBody;
   }

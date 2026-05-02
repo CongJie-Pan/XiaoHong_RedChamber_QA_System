@@ -1,5 +1,5 @@
 /**
- * Perplexity API Type Definitions
+ * Chat Stream API Type Definitions
  * Defines all types for API requests and responses
  */
 /**
@@ -17,9 +17,9 @@ export interface ChatMessage {
 }
 
 /**
- * Perplexity API request body
+ * Chat Stream API request body
  */
-export interface PerplexityRequest {
+export interface ChatStreamRequest {
   /** Model to use - 'sonar-reasoning' for reasoning with thinking */
   model: 'sonar-reasoning' | 'sonar' | 'sonar-pro';
   /** Array of messages in the conversation */
@@ -94,9 +94,9 @@ export interface StreamChoice {
 }
 
 /**
- * Perplexity API non-streaming response
+ * Chat Stream API non-streaming response
  */
-export interface PerplexityResponse {
+export interface ChatStreamResponse {
   /** Unique response ID */
   id: string;
   /** Model used */
@@ -112,9 +112,9 @@ export interface PerplexityResponse {
 }
 
 /**
- * Perplexity API streaming chunk
+ * Chat Stream API streaming chunk
  */
-export interface PerplexityStreamChunk {
+export interface ChatStreamStreamChunk {
   /** Unique response ID */
   id: string;
   /** Model used */
@@ -169,4 +169,6 @@ export interface StreamCallbacks {
   onStatus?: (status: 'idle' | 'retrieving' | 'searching_dense' | 'searching_sparse' | 'reranking' | 'sources_ready' | 'generating' | 'done', message: string) => void;
   /** Called when structured sources payload is pushed */
   onSources?: (sources: CitationSource[]) => void;
+  /** Called when suggested follow-up questions are received */
+  onSuggestions?: (suggestions: string[]) => void;
 }

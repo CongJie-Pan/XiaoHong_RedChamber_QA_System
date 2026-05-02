@@ -14,11 +14,11 @@ import { useChatStore } from '@/store/chat';
 import type { DisplayMessage } from '@/store/chat';
 import type { CitationSource } from '@/components/Citations';
 import { useConversationStore } from '@/store/conversation';
-import { createChatStream } from '@/services/perplexity';
+import { createChatStream } from '@/services/chat-stream';
 import { databaseService } from '@/services/database';
 import { ValidationError, normalizeError } from '@/utils/error';
 import { sanitizeMessagesForAPI } from '@/utils/sanitizer';
-import type { ChatMessage } from '@/services/perplexity/types';
+import type { ChatMessage } from '@/services/chat-stream/types';
 import type { Message } from '@/database/schema';
 
 /**
@@ -175,7 +175,7 @@ export async function sendMessage(
 
   // Safety check: Don't send empty messages to API
   if (messages.length === 0) {
-    chatStore.stopStreaming();
+    chatStore.resetStreamingState();
     chatStore.setError(new Error('無法準備對話內容，請重新嘗試。'));
     return;
   }
@@ -186,6 +186,7 @@ export async function sendMessage(
   let answerContent = '';
   let citations: string[] = [];
   let sourcesPayload: CitationSource[] = [];
+  let suggestionsList: string[] = [];
 
   // Capture conversation ID for async callback (prevents closure issues)
   const conversationIdForSave = activeConversationId;
@@ -231,6 +232,11 @@ export async function sendMessage(
           chatStore.setRagSources(sources);
         },
 
+        onSuggestions: (suggestions: string[]) => {
+          suggestionsList = suggestions;
+          chatStore.updateAssistantMessage(assistantMessageId, { suggestions });
+        },
+
         onDone: async () => {
           chatStore.endStreaming();
 
@@ -258,6 +264,10 @@ export async function sendMessage(
 
           if (sourcesPayload.length > 0) {
             messageData.sources = sourcesPayload;
+          }
+
+          if (suggestionsList.length > 0) {
+            messageData.suggestions = suggestionsList;
           }
 
           // Use captured conversation ID to prevent null assertion issues
@@ -528,7 +538,7 @@ export async function regenerateMessage(messageId: string): Promise<void> {
 
   // Safety check: Don't send empty messages to API
   if (apiMessages.length === 0) {
-    chatStore.stopStreaming();
+    chatStore.resetStreamingState();
     chatStore.setError(new Error('無法準備對話內容（歷史記錄為空），無法重新生成。'));
     return;
   }
@@ -539,6 +549,7 @@ export async function regenerateMessage(messageId: string): Promise<void> {
   let answerContent = '';
   let citations: string[] = [];
   let sourcesPayload: CitationSource[] = [];
+  let suggestionsList: string[] = [];
 
   try {
     await createChatStream(
@@ -580,6 +591,11 @@ export async function regenerateMessage(messageId: string): Promise<void> {
           chatStore.setRagSources(sources);
         },
 
+        onSuggestions: (suggestions: string[]) => {
+          suggestionsList = suggestions;
+          chatStore.updateAssistantMessage(assistantMessageId, { suggestions });
+        },
+
         onDone: async () => {
           chatStore.endStreaming();
 
@@ -609,7 +625,12 @@ export async function regenerateMessage(messageId: string): Promise<void> {
             messageData.sources = sourcesPayload;
           }
 
+          if (suggestionsList.length > 0) {
+            messageData.suggestions = suggestionsList;
+          }
+
           await databaseService.message.add(activeConversationId, messageData);
+
 
           // Reload conversations to update stats
           await conversationStore.loadConversations();
@@ -734,6 +755,7 @@ export async function editUserMessage(
   let answerContent = '';
   let citations: string[] = [];
   let sourcesPayload: CitationSource[] = [];
+  let suggestionsList: string[] = [];
 
   try {
     await createChatStream(
@@ -775,6 +797,11 @@ export async function editUserMessage(
           chatStore.setRagSources(sources);
         },
 
+        onSuggestions: (suggestions: string[]) => {
+          suggestionsList = suggestions;
+          chatStore.updateAssistantMessage(assistantMessageId, { suggestions });
+        },
+
         onDone: async () => {
           chatStore.endStreaming();
 
@@ -804,7 +831,12 @@ export async function editUserMessage(
             messageData.sources = sourcesPayload;
           }
 
+          if (suggestionsList.length > 0) {
+            messageData.suggestions = suggestionsList;
+          }
+
           await databaseService.message.add(activeConversationId, messageData);
+
 
           // Reload conversations to update stats
           await conversationStore.loadConversations();

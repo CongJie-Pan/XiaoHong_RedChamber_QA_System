@@ -1,6 +1,6 @@
 /**
- * Perplexity Service Module
- * Exports all Perplexity API related functionality
+ * Chat Stream Service Module
+ * Exports all chat streaming related functionality
  */
 
 export { ThinkTagParser } from './parser';

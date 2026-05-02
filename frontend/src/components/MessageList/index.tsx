@@ -22,12 +22,14 @@ export interface MessageListProps {
   onRegenerate?: (messageId: string) => void;
   /** Callback when edit is submitted for user messages */
   onEdit?: (messageId: string, newContent: string) => void;
+  /** Callback when a suggested question is selected */
+  onSelectSuggestion?: (question: string) => void;
 }
 
 /**
  * MessageList displays all messages in the current conversation
  */
-export function MessageList({ className, onRegenerate, onEdit }: MessageListProps) {
+export function MessageList({ className, onRegenerate, onEdit, onSelectSuggestion }: MessageListProps) {
   const { styles, cx } = useStyles();
   const containerRef = useRef<HTMLDivElement>(null);
   const userScrolledUpRef = useRef(false);
@@ -85,7 +87,9 @@ export function MessageList({ className, onRegenerate, onEdit }: MessageListProp
         
         if (isNearBottom) {
           userScrolledUpRef.current = false;
-          setShowScrollButton(false);
+          // Defer state update to avoid cascading render warning in React 19 / ESLint
+          // when calling setState synchronously within an effect that measures DOM
+          setTimeout(() => setShowScrollButton(false), 0);
         }
       }
     }
@@ -154,14 +158,17 @@ export function MessageList({ className, onRegenerate, onEdit }: MessageListProp
 
   return (
     <div ref={containerRef} className={cx(styles.container, className)}>
-      {messages.map((message) => {
+      {messages.map((message, index) => {
         const isCurrentStreaming = message.id === currentStreamingId;
+        const isLast = index === messages.length - 1;
 
         return (
           <MessageItem
             key={message.id}
             message={message}
             isStreaming={isCurrentStreaming && isStreaming}
+            isLast={isLast}
+            onSelectSuggestion={onSelectSuggestion}
             thinking={
               isCurrentStreaming
                 ? {

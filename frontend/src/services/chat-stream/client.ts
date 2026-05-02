@@ -1,5 +1,5 @@
 /**
- * Perplexity API Client
+ * Chat Stream API Client
  * Handles streaming chat requests and response parsing
  *
  * Features:
@@ -10,13 +10,13 @@
  */
 
 import { API_CONFIG } from '@/config/api';
-import { PerplexityAPIError, StreamParseError, isAbortError } from '@/utils/error';
+import { ChatStreamError, StreamParseError, isAbortError } from '@/utils/error';
 import { ThinkTagParser } from './parser';
 import { useChatStore } from '@/store/chat/store';
 import type { ChatMessage, StreamCallbacks } from './types';
 
 /**
- * Creates a streaming chat request to the Perplexity API proxy
+ * Creates a streaming chat request to the local AI backend
  *
  * @param messages - Array of chat messages
  * @param callbacks - Callbacks for handling stream events
@@ -119,7 +119,7 @@ export async function createChatStream(
         errorMessage = `API Error: ${response.status} ${response.statusText}`;
       }
 
-      throw new PerplexityAPIError(errorMessage, response.status, errorBody);
+      throw new ChatStreamError(errorMessage, response.status, errorBody);
     }
 
     // Get the response reader
@@ -178,6 +178,11 @@ export async function createChatStream(
 
           if (eventType === 'sources') {
             callbacks.onSources?.(chunk); // chunk is an array of source objects
+            continue;
+          }
+
+          if (eventType === 'suggestions') {
+            callbacks.onSuggestions?.(chunk); // chunk is an array of strings
             continue;
           }
 
@@ -240,7 +245,7 @@ export async function createChatStream(
     // Convert to appropriate error type and call error callback
     let normalizedError: Error;
 
-    if (error instanceof PerplexityAPIError) {
+    if (error instanceof ChatStreamError) {
       normalizedError = error;
     } else if (error instanceof Error) {
       // Check if it's a fetch abort error
@@ -273,4 +278,4 @@ export { ThinkTagParser };
 /**
  * Export error types for consumers
  */
-export { PerplexityAPIError, StreamParseError };
+export { ChatStreamError, StreamParseError };

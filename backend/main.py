@@ -82,6 +82,8 @@ try:
         sys.path.insert(0, str(src_python_dir))
         
     from services.rag_service import RAGService
+    from services.router_service import RouterService
+    from services.suggestion_service import SuggestionService
     
     faiss_dir = project_root / "data" / "rag" / "faiss_index"
     bm25_dir = project_root / "data" / "rag" / "bm25_index"
@@ -112,7 +114,9 @@ try:
         score_threshold=0.3,
         max_context_tokens=4000,
     )
-    print("RAG Service initialized successfully.")
+    router_service = RouterService()
+    suggestion_service = SuggestionService()
+    print("RAG, Router, and Suggestion Services initialized successfully.")
 except Exception as e:
     rag_service = None
     print(f"Warning: Could not load RAGService. Details: {e}")
@@ -233,6 +237,26 @@ async def stream_endpoint(request: Request, chat_req: ChatRequest):
     """
     async def generate():
         try:
+            # 0. Gatekeeper / Smart Routing phase (Absolute First Layer)
+            # Detect if the query is Out-of-Domain (OOD) before any other processing
+            last_user_msg = next((m["content"] for m in reversed(chat_req.messages) if m["role"] == "user"), "")
+            if last_user_msg and router_service:
+                intent_result = await router_service.check_query_intent(last_user_msg)
+                if intent_result.get("action") == "DENY":
+                    refusal = intent_result.get("refusal_message") or "小紅目前僅能回答關於《紅樓夢》與國學相關的問題，請換個問題試試看喔！"
+                    chunk_data = {
+                        "choices": [
+                            {
+                                "delta": {"content": refusal},
+                                "index": 0,
+                                "finish_reason": "stop",
+                            }
+                        ]
+                    }
+                    yield f"data: {json.dumps(chunk_data, ensure_ascii=False)}\n\n"
+                    yield "data: [DONE]\n\n"
+                    return
+
             # 1. Metadata synchronization phase
             metadata = {
                 "promptTokens": 1024,
@@ -280,8 +304,26 @@ async def stream_endpoint(request: Request, chat_req: ChatRequest):
                                     elif event["type"] == "results":
                                         context_results_obj = event["data"]
                                         
-                                if context_results_obj and context_results_obj.final_results:
-                                    context_texts = []
+                                if context_results_obj:
+                                    # Layer 2: Rerank Score Fallback (Guardrail)
+                                    # If RAG is enabled but no document score exceeds the threshold, trigger refusal
+                                    if context_results_obj.highest_score < rag_service.score_threshold:
+                                        refusal = "小紅查閱了相關古籍文獻，暫時沒能找到與您問題直接相關的內容。為了保證回答的準確性，小紅建議您換個方式提問，或是詢問關於《紅樓夢》與國學的其他問題喔！ 😊"
+                                        chunk_data = {
+                                            "choices": [
+                                                {
+                                                    "delta": {"content": refusal},
+                                                    "index": 0,
+                                                    "finish_reason": "stop",
+                                                }
+                                            ]
+                                        }
+                                        yield f"data: {json.dumps(chunk_data, ensure_ascii=False)}\n\n"
+                                        yield "data: [DONE]\n\n"
+                                        return
+
+                                    if context_results_obj.final_results:
+                                        context_texts = []
                                     sources_payload = []
                                     
                                     # Filter out results with empty or whitespace-only text
@@ -402,6 +444,7 @@ async def stream_endpoint(request: Request, chat_req: ChatRequest):
                         stop=["<|im_end|>", "<|endoftext|>"]
                     )
                     
+                    answer_content_accumulator = ""
                     async for chunk in response:
                         if await request.is_disconnected():
                             break
@@ -410,6 +453,7 @@ async def stream_endpoint(request: Request, chat_req: ChatRequest):
                         # so that our rigid Next.js client parser doesn't break!
                         text_chunk = chunk.choices[0].text if chunk.choices and chunk.choices[0].text else ""
                         if text_chunk:
+                            answer_content_accumulator += text_chunk
                             chunk_data = {
                                 "choices": [
                                     {
@@ -424,6 +468,29 @@ async def stream_endpoint(request: Request, chat_req: ChatRequest):
                             # that would cause the frontend Citations component to show "Invalid URL".
                             yield f"data: {json.dumps(chunk_data, ensure_ascii=False)}\n\n"
                         await asyncio.sleep(0)
+                    
+                    # 2.5. Generate Suggestions (Suggested Questions)
+                    # Triggered after main generation is complete, reusing RAG contexts
+                    if suggestion_service:
+                        try:
+                            # We only generate if we have a valid last user message and results
+                            # context_results_obj was captured during RAG phase
+                            # last_user_msg was captured at the start of generate()
+                            
+                            # Note: context_results_obj might be None if RAG was disabled
+                            # But suggestion_service can still generate based on query and answer
+                            reranked_results = context_results_obj.final_results if (chat_req.use_rag and context_results_obj) else []
+                            
+                            suggestions = await suggestion_service.generate_suggestions(
+                                user_query=last_user_msg,
+                                answer_text=answer_content_accumulator,
+                                reranked_results=reranked_results
+                            )
+                            
+                            if suggestions:
+                                yield f"event: suggestions\ndata: {json.dumps(suggestions, ensure_ascii=False)}\n\n"
+                        except Exception as sug_err:
+                            print(f"Failed to generate suggestions: {sug_err}")
                         
                 except Exception as e:
                     reason = str(e)

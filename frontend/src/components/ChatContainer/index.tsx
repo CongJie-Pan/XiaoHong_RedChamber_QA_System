@@ -14,6 +14,7 @@ import { sendMessage, loadMessages, initializeChatService, cancelCurrentStream, 
 import { ConversationList } from '@/components/ConversationList';
 import { MessageList } from '@/components/MessageList';
 import { ChatInput } from '@/components/ChatInput';
+import { TextSelectionToolbar } from '@/components/TextSelectionToolbar';
 import { useStyles } from './styles';
 
 /**
@@ -251,7 +252,11 @@ export function ChatContainer({ className }: ChatContainerProps) {
         <div className={cx(styles.content, isEmpty && styles.contentEmpty)}>
           {/* Message List */}
           <div className={styles.messageArea}>
-            <MessageList onRegenerate={handleRegenerate} onEdit={handleEdit} />
+            <MessageList 
+              onRegenerate={handleRegenerate} 
+              onEdit={handleEdit} 
+              onSelectSuggestion={handleSend}
+            />
           </div>
 
           {/* Chat Input */}
@@ -270,6 +275,9 @@ export function ChatContainer({ className }: ChatContainerProps) {
           </div>
         </div>
       </div>
+
+      {/* Text Selection Toolbar */}
+      <TextSelectionToolbar />
     </div>
   );
 }

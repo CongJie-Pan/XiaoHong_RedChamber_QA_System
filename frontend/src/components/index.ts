@@ -4,6 +4,7 @@
  */
 
 export { ThinkingPanel } from './ThinkingPanel';
+export { SuggestedQuestions } from './SuggestedQuestions';
 export { Citations } from './Citations';
 export { RAGStatusPanel } from './RAGStatusPanel';
 export { MessageList, MessageItem } from './MessageList';

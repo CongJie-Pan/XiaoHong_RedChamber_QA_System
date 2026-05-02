@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { sendMessage, regenerateMessage } from '@/services/chat';
 import { useChatStore } from '@/store/chat';
 import { useConversationStore } from '@/store/conversation';
-import { createChatStream } from '@/services/perplexity';
+import { createChatStream } from '@/services/chat-stream';
 import { databaseService } from '@/services/database';
 
 vi.mock('@/store/chat', () => ({
@@ -17,7 +17,7 @@ vi.mock('@/store/conversation', () => ({
   },
 }));
 
-vi.mock('@/services/perplexity', () => ({
+vi.mock('@/services/chat-stream', () => ({
   createChatStream: vi.fn(),
 }));
 
@@ -139,7 +139,7 @@ describe('Chat Service', () => {
       await sendMessage(INPUT_CONTENT);
 
       // Assert
-      expect(mockChatStore.stopStreaming).toHaveBeenCalled();
+      expect(mockChatStore.resetStreamingState).toHaveBeenCalled();
       expect(mockChatStore.setError).toHaveBeenCalledWith(
         expect.objectContaining({ message: '無法準備對話內容，請重新嘗試。' })
       );
@@ -184,7 +184,7 @@ describe('Chat Service', () => {
       // Assert
       expect(mockChatStore.removeMessage).toHaveBeenCalledWith(TARGET_MSG_ID);
       expect(databaseService.message.delete).toHaveBeenCalledWith(TARGET_MSG_ID);
-      expect(mockChatStore.stopStreaming).toHaveBeenCalled();
+      expect(mockChatStore.resetStreamingState).toHaveBeenCalled();
       expect(mockChatStore.setError).toHaveBeenCalledWith(
         expect.objectContaining({ message: '無法準備對話內容（歷史記錄為空），無法重新生成。' })
       );
