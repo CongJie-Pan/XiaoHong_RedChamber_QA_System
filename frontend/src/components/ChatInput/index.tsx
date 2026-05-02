@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Send, Square, Brain, Database } from 'lucide-react';
+import { Send, Square, Brain, Database, Quote, X } from 'lucide-react';
 import { message, Tooltip } from 'antd';
 import { useChatStore } from '@/store/chat';
 import { useStyles } from './styles';
@@ -53,8 +53,10 @@ export function ChatInput({
   // Connect to global state for mode togglers
   const useRag = useChatStore((state) => state.useRag);
   const forceThink = useChatStore((state) => state.forceThink);
+  const quotedText = useChatStore((state) => state.quotedText);
   const toggleRag = useChatStore((state) => state.toggleRag);
   const toggleThink = useChatStore((state) => state.toggleThink);
+  const setQuotedText = useChatStore((state) => state.setQuotedText);
 
   // Calculate character count and warning state
   const charCount = value.length;
@@ -70,6 +72,13 @@ export function ChatInput({
     }
   }, [value]);
 
+  // Focus textarea when quotedText changes
+  useEffect(() => {
+    if (quotedText && textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, [quotedText]);
+
   // Focus textarea on mount
   useEffect(() => {
     if (textareaRef.current && !disabled) {
@@ -81,9 +90,11 @@ export function ChatInput({
     const trimmedValue = value.trim();
 
     // Validation checks
-    if (!trimmedValue || disabled) {
+    if (!trimmedValue && !quotedText) {
       return;
     }
+
+    if (disabled) return;
 
     // Check message length
     if (trimmedValue.length > maxLength) {
@@ -91,21 +102,26 @@ export function ChatInput({
       return;
     }
 
-    // Validate message has meaningful content (supports Unicode: Chinese, Japanese, etc.)
-    // trimmedValue is already validated as non-empty above
-    if (trimmedValue.length === 0) {
+    // Construct final message with quote if exists
+    let finalMessage = trimmedValue;
+    if (quotedText) {
+      finalMessage = `> ${quotedText}\n\n${trimmedValue}`;
+    }
+
+    if (!finalMessage.trim()) {
       message.warning('請輸入有效的訊息。');
       return;
     }
 
-    onSend(trimmedValue);
+    onSend(finalMessage);
     setValue('');
+    setQuotedText(null); // Clear quote after sending
 
     // Reset textarea height
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
-  }, [value, disabled, onSend, maxLength]);
+  }, [value, disabled, onSend, maxLength, quotedText, setQuotedText]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -129,6 +145,21 @@ export function ChatInput({
 
   return (
     <div className={cx(styles.container, className)}>
+      {/* Quote Preview */}
+      {quotedText && (
+        <div className={styles.quotePreview}>
+          <Quote size={14} className={cx(styles.quoteIcon, 'text-[#A82222]')} />
+          <div className={styles.quoteContent}>{quotedText}</div>
+          <button
+            className={styles.quoteClose}
+            onClick={() => setQuotedText(null)}
+            aria-label="取消引用"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       {/* Textarea */}
       <textarea
         ref={textareaRef}

@@ -31,6 +31,59 @@ export const useStyles = createStyles(({ css, token }) => ({
     }
   `,
 
+  quotePreview: css`
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    background: rgba(168, 34, 34, 0.1);
+    border-left: 3px solid #A82222;
+    border-radius: 8px;
+    color: #f0f0f0;
+    font-size: 14px;
+    position: relative;
+    animation: slideDown 0.2s ease-out;
+
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  `,
+
+  quoteIcon: css`
+    flex-shrink: 0;
+    opacity: 0.7;
+  `,
+
+  quoteContent: css`
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    opacity: 0.8;
+  `,
+
+  quoteClose: css`
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.4);
+    cursor: pointer;
+    border-radius: 50%;
+    transition: all 0.2s;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+    }
+  `,
+
   // Borderless textarea that fills the top of the card
   textarea: css`
     width: 100%;
