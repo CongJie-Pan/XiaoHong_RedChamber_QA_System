@@ -23,6 +23,7 @@ const initialState = {
   isThinking: false,
   currentContent: '',
   currentCitations: [] as string[],
+  quotedText: null as string | null,
   error: null as Error | null,
   tokenUsage: null as { promptTokens?: number; completionTokens?: number; totalTokens?: number } | null,
   useRag: false,
@@ -254,6 +255,13 @@ export const useChatStore = create<ChatStore>((set) => ({
           )
         : state.messages,
     }));
+  },
+
+  /**
+   * Set text to be quoted in next message
+   */
+  setQuotedText: (text: string | null) => {
+    set({ quotedText: text });
   },
 
   // Error handling

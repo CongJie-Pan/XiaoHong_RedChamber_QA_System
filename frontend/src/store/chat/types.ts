@@ -13,6 +13,8 @@ import type { CitationSource } from '@/components/Citations';
 export interface DisplayMessage extends Message {
   /** Whether this message is currently being streamed */
   isStreaming?: boolean;
+  /** Suggested follow-up questions */
+  suggestions?: string[];
 }
 
 /**
@@ -56,6 +58,10 @@ export interface ChatState {
   currentContent: string;
   /** Citation URLs from response */
   currentCitations: string[];
+
+  // Selection/Quote state
+  /** Selected text for quoting in ChatInput */
+  quotedText: string | null;
 
   // Error state
   /** Current error if any */
@@ -115,6 +121,10 @@ export interface ChatActions {
   // Citations
   /** Set citation URLs */
   setCitations: (citations: string[]) => void;
+
+  // Selection/Quote actions
+  /** Set text to be quoted in next message */
+  setQuotedText: (text: string | null) => void;
 
   // Error handling
   /** Set error state */

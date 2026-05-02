@@ -57,6 +57,8 @@ export interface Message {
     score: number;
     chunk_id: string;
   }>;
+  /** Suggested follow-up questions (optional) */
+  suggestions?: string[];
   /** Token usage information (optional) */
   usage?: {
     promptTokens: number;

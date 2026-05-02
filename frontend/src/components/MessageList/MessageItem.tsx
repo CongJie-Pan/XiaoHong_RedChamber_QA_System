@@ -11,6 +11,7 @@ import remarkGfm from 'remark-gfm';
 import { Copy, RefreshCw, Edit } from 'lucide-react';
 import { Tooltip, message as antMessage } from 'antd';
 import { ThinkingPanel } from '@/components/ThinkingPanel';
+import { SuggestedQuestions } from '@/components/SuggestedQuestions';
 import { Citations } from '@/components/Citations';
 import { RAGStatusPanel } from '@/components/RAGStatusPanel';
 import type { CitationSource } from '@/components/Citations';
@@ -92,6 +93,10 @@ export interface MessageItemProps {
   onRegenerate?: (messageId: string) => void;
   /** Callback when edit is submitted (user messages only) */
   onEdit?: (messageId: string, newContent: string) => void;
+  /** Whether this is the last message in the list (to show suggested questions) */
+  isLast?: boolean;
+  /** Callback when a suggested question is clicked */
+  onSelectSuggestion?: (question: string) => void;
 }
 
 /**
@@ -119,6 +124,8 @@ export const MessageItem = memo(function MessageItem({
   ragInfo,
   onRegenerate,
   onEdit,
+  isLast = false,
+  onSelectSuggestion,
 }: MessageItemProps) {
   const { styles, cx } = useStyles();
   const isUser = message.role === 'user';
@@ -301,6 +308,15 @@ export const MessageItem = memo(function MessageItem({
                     sources={message.sources || ragInfo?.sources}
                   />
                 </div>
+              )}
+
+              {/* Suggested Questions - Only for last assistant message */}
+              {isLast && !isUser && message.suggestions && message.suggestions.length > 0 && !isStreaming && (
+                <SuggestedQuestions 
+                  suggestions={message.suggestions} 
+                  onSelect={(q) => onSelectSuggestion?.(q)}
+                  disabled={isStreaming}
+                />
               )}
             </div>
 
