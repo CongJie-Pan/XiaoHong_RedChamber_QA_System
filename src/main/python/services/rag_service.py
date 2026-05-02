@@ -99,6 +99,7 @@ class RetrievalDebugInfo:
     context: str = ""
     sanitized_count: int = 0
     truncated_count: int = 0
+    highest_score: float = 0.0
 
     def __post_init__(self):
         """Normalise optional collections to empty lists."""
@@ -949,19 +950,30 @@ class RAGService:
 
         # Step 4: Take top-k
         top_results = fused[: self.top_k]
+        
+        # Calculate highest score for Layer 2 Gatekeeper logic
+        highest_score = 0.0
+        if top_results:
+            first_item = top_results[0]
+            highest_score = first_item.get("reranker_score", first_item.get("rrf_score", 0.0))
+        debug_info.highest_score = highest_score
 
         # Step 5: Sanitize (prompt injection defence)
         sanitized = []
         sanitized_count = 0
         for item in top_results:
+            # Apply threshold filter for final injection
+            current_score = item.get("reranker_score", item.get("rrf_score", 0.0))
+            if current_score < self.score_threshold:
+                continue
+                
             clean_text = sanitize_chunk(item["text"])
             if clean_text != item["text"]:
                 sanitized_count += 1
-            final_score = item.get("reranker_score", item.get("rrf_score", 0.0))
             sanitized.append(RetrievalResult(
                 text=clean_text,
                 chunk_id=item.get("chunk_id", ""),
-                score=final_score,
+                score=current_score,
                 source=item.get("source", ""),
             ))
 

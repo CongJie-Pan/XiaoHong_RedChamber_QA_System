@@ -12,6 +12,7 @@ The system is split into three main layers:
     *   **Dense Search:** FAISS index with `Qwen3-Embedding-0.6B`.
     *   **Sparse Search:** `rank-bm25` optimized for classical Chinese (custom $k_1$ and $b$ parameters).
     *   **Fusion:** Reciprocal Rank Fusion (RRF) and Cross-Encoder Reranking.
+    *   **Gatekeeper:** A two-layer intelligent routing system using `Qwen3.5-0.8B` (via DeepInfra) for Out-of-Domain (OOD) detection and Rerank score thresholding for fallback refusal.
     *   **Safeguards:** Prompt injection sanitization and "Refusal to Answer" for hallucination prevention.
 
 ## 🚀 Key Technologies
