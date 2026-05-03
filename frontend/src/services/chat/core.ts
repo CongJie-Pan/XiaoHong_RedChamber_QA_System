@@ -9,14 +9,11 @@
 import { API_CONFIG } from '@/config/api';
 import { useChatStore } from '@/store/chat';
 import type { DisplayMessage } from '@/store/chat';
-import type { CitationSource } from '@/components/Citations';
 import { useConversationStore } from '@/store/conversation';
-import { createChatStream } from '@/services/chat-stream';
 import { databaseService } from '@/services/database';
-import { ValidationError, normalizeError } from '@/utils/error';
+import { ValidationError } from '@/utils/error';
 import { sanitizeMessagesForAPI } from '@/utils/sanitizer';
 import type { ChatMessage } from '@/services/chat-stream/types';
-import type { Message } from '@/database/schema';
 
 /**
  * Prepare messages for API by filtering out invalid messages
@@ -185,7 +182,7 @@ export async function sendMessage(
         if (update.citations) chatStore.setCitations(update.citations, activeConversationId);
         break;
       case 'status':
-        chatStore.setRagStatus(update.status, update.message, activeConversationId);
+        chatStore.setRagStatus(update.status ?? 'idle', update.message, activeConversationId);
         break;
       case 'sources':
         if (update.sources) chatStore.setRagSources(update.sources, activeConversationId);

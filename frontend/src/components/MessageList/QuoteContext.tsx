@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useRef, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useRef, useCallback, ReactNode, useMemo } from 'react';
 
 /**
  * Result of a text search in a DOM container
@@ -21,6 +21,16 @@ interface QuoteContextValue {
 }
 
 const QuoteContext = createContext<QuoteContextValue | null>(null);
+
+type HighlightConstructor = new (...ranges: Range[]) => unknown;
+interface HighlightWindow {
+  Highlight?: HighlightConstructor;
+}
+interface CssHighlights {
+  set: (name: string, highlight: unknown) => void;
+  delete: (name: string) => void;
+}
+type CssWithHighlights = typeof CSS & { highlights?: CssHighlights };
 
 /**
  * Build Range objects for text segments split across multiple nodes
@@ -79,12 +89,14 @@ function findTextInContainer(container: HTMLElement, quoteText: string): Range[]
 const HIGHLIGHT_CLASS = 'quote-highlight';
 function applyHighlight(ranges: Range[]): () => void {
   // Use CSS Highlight API if available (Chrome 105+)
-  // We need to cast to any because TS might not have full Highlight API types yet
-  const win = window as any;
-  if ('Highlight' in win && 'highlights' in (CSS as any)) {
+  const win = window as HighlightWindow;
+  const css = CSS as CssWithHighlights;
+  if (win.Highlight && css.highlights) {
     const highlight = new win.Highlight(...ranges);
-    (CSS as any).highlights.set(HIGHLIGHT_CLASS, highlight);
-    return () => (CSS as any).highlights.delete(HIGHLIGHT_CLASS);
+    css.highlights.set(HIGHLIGHT_CLASS, highlight);
+    return () => {
+      css.highlights?.delete(HIGHLIGHT_CLASS);
+    };
   }
 
   // Fallback: Use marks (slightly more invasive but widely supported)
@@ -172,8 +184,13 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  const value = useMemo(() => ({
+    registerMessageRef,
+    handleQuoteClick,
+  }), [registerMessageRef, handleQuoteClick]);
+
   return (
-    <QuoteContext.Provider value={{ registerMessageRef, handleQuoteClick }}>
+    <QuoteContext.Provider value={value}>
       {children}
     </QuoteContext.Provider>
   );

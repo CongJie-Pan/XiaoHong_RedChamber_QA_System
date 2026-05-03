@@ -7,10 +7,16 @@
 // =================================================================
 
 import { databaseService } from '@/services/database';
-import { useChatStore } from '@/store/chat';
 import { createChatStream } from '@/services/chat-stream';
 import type { ChatMessage } from '@/services/chat-stream/types';
 import type { CitationSource } from '@/components/Citations';
+import type { ConversationSnapshot } from '@/store/chat/types';
+
+type RagStatus = ConversationSnapshot['ragStatus'];
+
+function toError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error));
+}
 
 /**
  * Metadata and state for an active streaming session
@@ -29,7 +35,7 @@ interface StreamSession {
   /** Whether the AI is currently in the thinking phase */
   isThinking: boolean;
   /** Status of the RAG pipeline */
-  ragStatus: string;
+  ragStatus: RagStatus;
   /** Collected citations */
   citations: string[];
   /** Structured RAG sources */
@@ -48,7 +54,7 @@ export interface StreamUpdate {
   chunk?: string;
   content?: string;
   citations?: string[];
-  status?: any;
+  status?: RagStatus;
   message?: string;
   sources?: CitationSource[];
   suggestions?: string[];
@@ -162,12 +168,13 @@ class StreamManager {
         useRag,
         forceThink
       );
-    } catch (err: any) {
-      if (err.name === 'AbortError') {
+    } catch (err: unknown) {
+      const error = toError(err);
+      if (error.name === 'AbortError') {
         console.log(`[StreamManager] Stream aborted for ${session.conversationId}`);
         await this._finalize(session, true);
       } else {
-        this._handleError(session, err);
+        this._handleError(session, error);
       }
     }
   }
@@ -187,7 +194,15 @@ class StreamManager {
   /**
    * Get current progress for a background stream
    */
-  getSessionState(conversationId: string) {
+  getSessionState(conversationId: string): {
+    content: string;
+    thinking: string;
+    isThinking: boolean;
+    citations: string[];
+    sources: CitationSource[];
+    suggestions: string[];
+    ragStatus: RagStatus;
+  } | null {
     const session = this.sessions.get(conversationId);
     if (!session) return null;
     
@@ -248,7 +263,7 @@ class StreamManager {
           content: session.accumulatedContent,
           isStreaming: true,
         });
-      } catch (err) {
+      } catch (err: unknown) {
         console.error('[StreamManager] Persistence error:', err);
       }
     }, 500); // 500ms debounce
@@ -277,7 +292,7 @@ class StreamManager {
       // we need to pass it back. For now, assume it's updated via reasoning object 
       // if we have enough info. 
       // Note: We might need to store thinkingDuration in session if needed.
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('[StreamManager] Finalization error:', err);
     } finally {
       this.sessions.delete(session.conversationId);

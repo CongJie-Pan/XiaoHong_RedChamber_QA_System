@@ -6,16 +6,10 @@
 // they depend on changes.
 // =================================================================
 
-import type { ChatState, ThinkingState, DisplayMessage, ConversationSnapshot } from './types';
+import type { ChatState, DisplayMessage, ConversationSnapshot } from './types';
 
 const EMPTY_MESSAGES: DisplayMessage[] = [];
 const EMPTY_CITATIONS: string[] = [];
-const DEFAULT_THINKING: ThinkingState = {
-  content: '',
-  isThinking: false,
-  startTime: null,
-};
-
 /**
  * Helper to get active snapshot
  */

@@ -17,98 +17,120 @@ import { databaseService } from '@/services/database';
  * @param conversationId - The ID of the conversation to activate
  */
 export function useConversationSwitch(conversationId: string | null) {
-  const { 
-    setActiveConversation, 
-    setMessages, 
-    appendContent, 
-    appendThinkingContent,
-    endThinking,
-    setCitations,
-    setRagStatus,
-    setRagSources,
-    updateAssistantMessage,
-    endStreaming,
-    setError,
-    startStreaming,
-  } = useChatStore();
-  
   const unsubscribeRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (!conversationId) {
-      setActiveConversation(null);
+      useChatStore.getState().setActiveConversation(null);
       return;
     }
 
     let isMounted = true;
 
     async function activate() {
-      // Why: TypeScript doesn't track that conversationId is non-null 
-      // inside an async closure even after the guard above.
       const activeId = conversationId!;
 
-      // 1. Set active conversation in store (initializes snapshot if missing)
-      setActiveConversation(activeId);
-
-      // 2. Load historical messages from IndexedDB
       try {
+        // 1. Load historical messages from IndexedDB
         const messages = await databaseService.message.getByConversationId(activeId);
         if (!isMounted) return;
-        setMessages(messages, activeId);
 
-        // 3. Check if there's a background stream running for this conversation
+        const existingSnapshot = useChatStore.getState().conversationSnapshots[activeId];
+        const mergedMessages = messages.length > 0
+          ? messages
+          : (existingSnapshot?.messages ?? []);
+
+        // 2. Atomic state update for switching
+        // Why: Combine pointer update, message loading, and background state sync 
+        // into a single render cycle to prevent UI ghosting or infinite loops.
         const backgroundState = streamManager.getSessionState(activeId);
-        if (backgroundState) {
-          // Sync existing buffer to store
-          startStreaming('', activeId); // Reset state but keep messages
-          if (backgroundState.thinking) {
-             // We don't have a clean way to "replay" thinking vs content perfectly 
-             // without more metadata, but we can set the latest values.
-             useChatStore.getState().setSnapshot(activeId, {
-               thinkingContent: backgroundState.thinking,
-               isThinking: backgroundState.isThinking,
-               currentContent: backgroundState.content,
-               currentCitations: backgroundState.citations,
-               ragStatus: backgroundState.ragStatus as any,
-               ragSources: backgroundState.sources,
-               isStreaming: true,
-             });
+        
+        useChatStore.setState((state) => ({
+          activeConversationId: activeId,
+          conversationSnapshots: {
+            ...state.conversationSnapshots,
+            [activeId]: {
+              ...(state.conversationSnapshots[activeId] || {
+                messages: [],
+                isStreaming: false,
+                currentStreamingId: null,
+                thinkingContent: '',
+                thinkingStartTime: null,
+                isThinking: false,
+                currentContent: '',
+                currentCitations: [],
+                ragStatus: 'idle',
+                ragMessage: '',
+                ragSources: [],
+                error: null,
+              }),
+              messages: mergedMessages,
+              // If there's a background stream, sync its current buffer immediately
+              ...(backgroundState ? {
+                thinkingContent: backgroundState.thinking,
+                isThinking: backgroundState.isThinking,
+                currentContent: backgroundState.content,
+                currentCitations: backgroundState.citations,
+                ragStatus: backgroundState.ragStatus ?? 'idle',
+                ragSources: backgroundState.sources,
+                isStreaming: true,
+              } : {}),
+            }
           }
+        }));
 
-          // 4. Subscribe to future updates
+        // 3. Subscribe to future updates if streaming in background
+        if (backgroundState) {
           unsubscribeRef.current?.();
           unsubscribeRef.current = streamManager.subscribe(activeId, (update: StreamUpdate) => {
             if (!isMounted) return;
 
-            switch (update.type) {
-              case 'content':
-                if (update.chunk) appendContent(update.chunk, activeId);
-                break;
-              case 'thinking':
-                if (update.chunk) appendThinkingContent(update.chunk, activeId);
-                break;
-              case 'thinking_end':
-                endThinking(activeId);
-                break;
-              case 'citations':
-                if (update.citations) setCitations(update.citations, activeId);
-                break;
-              case 'status':
-                setRagStatus(update.status, update.message, activeId);
-                break;
-              case 'sources':
-                if (update.sources) setRagSources(update.sources, activeId);
-                break;
-              case 'suggestions':
-                if (update.suggestions) updateAssistantMessage('', { suggestions: update.suggestions }, activeId);
-                break;
-              case 'done':
-                endStreaming(activeId, update.suggestions);
-                break;
-              case 'error':
-                if (update.error) setError(update.error, activeId);
-                break;
-            }
+            useChatStore.setState((state) => {
+              const snap = state.conversationSnapshots[activeId];
+              if (!snap) return state;
+
+              const newSnap = { ...snap };
+
+              switch (update.type) {
+                case 'content':
+                  if (update.chunk) newSnap.currentContent += update.chunk;
+                  break;
+                case 'thinking':
+                  if (update.chunk) {
+                    newSnap.thinkingContent += update.chunk;
+                    if (newSnap.thinkingStartTime === null) newSnap.thinkingStartTime = Date.now();
+                  }
+                  newSnap.isThinking = true;
+                  break;
+                case 'thinking_end':
+                  newSnap.isThinking = false;
+                  break;
+                case 'citations':
+                  if (update.citations) newSnap.currentCitations = update.citations;
+                  break;
+                case 'status':
+                  newSnap.ragStatus = update.status ?? 'idle';
+                  if (update.message) newSnap.ragMessage = update.message;
+                  break;
+                case 'sources':
+                  if (update.sources) newSnap.ragSources = update.sources;
+                  break;
+                case 'done':
+                  newSnap.isStreaming = false;
+                  break;
+                case 'error':
+                  newSnap.error = update.error || null;
+                  newSnap.isStreaming = false;
+                  break;
+              }
+
+              return {
+                conversationSnapshots: {
+                  ...state.conversationSnapshots,
+                  [activeId]: newSnap
+                }
+              };
+            });
           });
         }
       } catch (err) {
@@ -123,19 +145,5 @@ export function useConversationSwitch(conversationId: string | null) {
       unsubscribeRef.current?.();
       unsubscribeRef.current = null;
     };
-  }, [
-    conversationId, 
-    setActiveConversation, 
-    setMessages, 
-    startStreaming, 
-    appendContent, 
-    appendThinkingContent, 
-    endThinking, 
-    setCitations, 
-    setRagStatus, 
-    setRagSources, 
-    updateAssistantMessage, 
-    endStreaming, 
-    setError
-  ]);
+  }, [conversationId]);
 }

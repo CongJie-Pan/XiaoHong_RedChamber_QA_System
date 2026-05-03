@@ -9,6 +9,7 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import { ArrowDown } from 'lucide-react';
 import { useChatStore, chatSelectors } from '@/store/chat';
+import { useShallow } from 'zustand/react/shallow';
 import { QuoteProvider } from './QuoteContext';
 import { MessageItem } from './MessageItem';
 import { useStyles } from './styles';
@@ -42,8 +43,8 @@ export function MessageList({ className, onRegenerate, onEdit, onSelectSuggestio
   const userScrolledUpRef = useRef(false);
   const [showScrollButton, setShowScrollButton] = React.useState(false);
 
-  // Get state from store via selectors
-  const messages = useChatStore(chatSelectors.displayMessages);
+  // Get state from store via selectors with shallow comparison for arrays/objects
+  const messages = useChatStore(useShallow(chatSelectors.displayMessages));
   const isStreaming = useChatStore(chatSelectors.isLoading);
   const currentStreamingId = useChatStore((state) => {
     const snap = state.activeConversationId ? state.conversationSnapshots[state.activeConversationId] : null;
@@ -62,10 +63,10 @@ export function MessageList({ className, onRegenerate, onEdit, onSelectSuggestio
     const snap = state.activeConversationId ? state.conversationSnapshots[state.activeConversationId] : null;
     return snap?.ragMessage || '';
   });
-  const ragSources = useChatStore((state) => {
+  const ragSources = useChatStore(useShallow((state) => {
     const snap = state.activeConversationId ? state.conversationSnapshots[state.activeConversationId] : null;
     return snap?.ragSources || [];
-  });
+  }));
 
   // =================================================================
   // SCROLL MANAGEMENT LOGIC

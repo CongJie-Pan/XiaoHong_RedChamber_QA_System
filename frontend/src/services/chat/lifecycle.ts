@@ -78,7 +78,6 @@ export async function switchConversation(conversationId: string): Promise<void> 
  */
 export async function deleteConversation(conversationId: string): Promise<void> {
   const conversationStore = useConversationStore.getState();
-  const chatStore = useChatStore.getState();
   
   // Abort if streaming
   streamManager.abort(conversationId);

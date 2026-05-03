@@ -10,7 +10,6 @@
 import { create } from 'zustand';
 import { generateUUID } from '@/utils/id';
 import type { ChatStore, ConversationSnapshot, DisplayMessage } from './types';
-import type { CitationSource } from '@/components/Citations';
 
 /**
  * Default state for a new conversation snapshot

@@ -9,8 +9,6 @@
 import { useChatStore } from '@/store/chat';
 import { useConversationStore } from '@/store/conversation';
 import { databaseService } from '@/services/database';
-import { normalizeError } from '@/utils/error';
-import type { Message } from '@/database/schema';
 import type { ChatMessage } from '@/services/chat-stream/types';
 import { prepareMessagesForAPI, validateMessageContent } from './core';
 
@@ -83,7 +81,7 @@ export async function regenerateMessage(messageId: string): Promise<void> {
         if (update.citations) chatStore.setCitations(update.citations, activeConversationId);
         break;
       case 'status':
-        chatStore.setRagStatus(update.status, update.message, activeConversationId);
+        chatStore.setRagStatus(update.status ?? 'idle', update.message, activeConversationId);
         break;
       case 'sources':
         if (update.sources) chatStore.setRagSources(update.sources, activeConversationId);
@@ -188,7 +186,7 @@ export async function editUserMessage(
         if (update.citations) chatStore.setCitations(update.citations, activeConversationId);
         break;
       case 'status':
-        chatStore.setRagStatus(update.status, update.message, activeConversationId);
+        chatStore.setRagStatus(update.status ?? 'idle', update.message, activeConversationId);
         break;
       case 'sources':
         if (update.sources) chatStore.setRagSources(update.sources, activeConversationId);

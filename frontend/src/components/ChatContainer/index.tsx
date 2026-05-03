@@ -13,6 +13,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Menu, X, AlertCircle } from 'lucide-react';
 import { App } from 'antd';
 import { useChatStore, chatSelectors } from '@/store/chat';
+import { useShallow } from 'zustand/react/shallow';
 import { useConversationStore, conversationSelectors } from '@/store/conversation';
 import { useConversationSwitch } from '@/hooks/useConversationSwitch';
 import { sendMessage, initializeChatService, cancelCurrentStream, regenerateMessage, editUserMessage } from '@/services/chat';
@@ -106,7 +107,7 @@ export function ChatContainer({ className }: ChatContainerProps) {
   const isStreaming = useChatStore(chatSelectors.isLoading);
   const error = useChatStore(chatSelectors.error);
   const setError = useChatStore((state) => state.setError);
-  const messages = useChatStore(chatSelectors.displayMessages);
+  const messages = useChatStore(useShallow(chatSelectors.displayMessages));
   
   // LOGIC: Check if conversation is empty
   // Why: Used to switch layout between landing view and active chat view.

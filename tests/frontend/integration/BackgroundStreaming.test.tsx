@@ -33,15 +33,6 @@ vi.mock('@/services/chat/mutations', () => ({
     editUserMessage: vi.fn(),
 }));
 
-// Mock Quote Context
-vi.mock('@/components/MessageList/QuoteContext', () => ({
-  QuoteProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  useQuote: () => ({
-    registerMessageRef: vi.fn(),
-    handleQuoteClick: vi.fn(),
-  }),
-}));
-
 import { QuoteProvider } from '@/components/MessageList/QuoteContext';
 
 describe('Background Streaming Integration', () => {
@@ -50,12 +41,20 @@ describe('Background Streaming Integration', () => {
     
     // Reset stores
     act(() => {
+      // Use the store actions to ensure proper initialization
       useChatStore.getState().setActiveConversation(null);
-      useConversationStore.getState().conversations = [
-        { id: 'conv1', title: 'Chat 1', messageCount: 0, lastMessagePreview: '', createdAt: new Date(), updatedAt: new Date() },
-        { id: 'conv2', title: 'Chat 2', messageCount: 0, lastMessagePreview: '', createdAt: new Date(), updatedAt: new Date() },
-      ];
+      useConversationStore.setState({
+        conversations: [
+          { id: 'conv1', title: 'Chat 1', messageCount: 0, lastMessagePreview: '', createdAt: new Date(), updatedAt: new Date() },
+          { id: 'conv2', title: 'Chat 2', messageCount: 0, lastMessagePreview: '', createdAt: new Date(), updatedAt: new Date() },
+        ],
+        activeConversationId: null,
+        error: null,
+      });
     });
+
+    vi.spyOn(useConversationStore.getState(), 'generateTitle')
+      .mockResolvedValue(undefined);
   });
 
   it('should continue streaming when switching conversations', async () => {
@@ -64,6 +63,8 @@ describe('Background Streaming Integration', () => {
 
     // Mock stream to be slow
     vi.mocked(createChatStream).mockImplementation(async (messages, callbacks) => {
+      // Small initial delay to ensure listener is ready
+      await new Promise(r => setTimeout(r, 10));
       callbacks.onContent!('Hello');
       await streamPromise;
       callbacks.onContent!(' world');
@@ -73,7 +74,6 @@ describe('Background Streaming Integration', () => {
     // 1. Start chat in Conv 1
     act(() => {
       useConversationStore.getState().selectConversation('conv1');
-      // Snapshot will be initialized by useConversationSwitch in ChatContainer
     });
 
     render(
@@ -93,7 +93,6 @@ describe('Background Streaming Integration', () => {
     // 2. Switch to Conv 2
     await act(async () => {
        useConversationStore.getState().selectConversation('conv2');
-       // Note: ChatContainer uses useConversationSwitch which reacts to activeConversationId from useConversationStore
     });
 
     // Verify Conv 1 message is GONE from current view
@@ -102,8 +101,8 @@ describe('Background Streaming Integration', () => {
     // 3. Complete the stream in background
     await act(async () => {
       resolveStream();
-      // Wait a bit for background updates
-      await new Promise(r => setTimeout(r, 50));
+      // Wait for multiple microtasks and the internal setTimeout in StreamManager
+      await new Promise(r => setTimeout(r, 100));
     });
 
     // 4. Switch back to Conv 1
@@ -112,7 +111,6 @@ describe('Background Streaming Integration', () => {
     });
 
     // Verify "Hello world" is visible in UI for Conv 1
-    // It should have been updated in the background snapshot
     expect(await screen.findByText(/Hello world/)).toBeDefined();
   });
 });

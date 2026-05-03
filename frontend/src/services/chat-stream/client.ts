@@ -184,7 +184,9 @@ export async function createChatStream(
 
           // IF: Event is a pipeline status update
           if (eventType === 'status') {
-            callbacks.onStatus?.(chunk.status, chunk.message);
+            if (chunk.status) {
+              callbacks.onStatus?.(chunk.status, chunk.message ?? '');
+            }
             continue;
           }
 
