@@ -39,65 +39,52 @@ export interface ThinkingState {
 }
 
 /**
+ * Conversation snapshot for UI state persistence
+ * Why: Captures the full UI state of a conversation, including 
+ * transient streaming data, to allow for background processing 
+ * and seamless conversation switching.
+ */
+export interface ConversationSnapshot {
+  // Message state
+  messages: DisplayMessage[];
+
+  // Streaming & Thinking state
+  isStreaming: boolean;
+  currentStreamingId: string | null;
+  thinkingContent: string;
+  thinkingStartTime: number | null;
+  isThinking: boolean;
+  currentContent: string;
+  currentCitations: string[];
+
+  // RAG Visualization State
+  ragStatus: 'idle' | 'routing' | 'retrieving' | 'searching_dense' | 'searching_sparse' | 'reranking' | 'sources_ready' | 'generating' | 'done';
+  ragMessage: string;
+  ragSources: CitationSource[];
+
+  // Error state
+  error: Error | null;
+}
+
+/**
  * Chat state managed by Zustand
  */
 export interface ChatState {
-  // =================================================================
-  // CORE MESSAGE STATE
-  // =================================================================
-  /** All messages in current conversation */
-  messages: DisplayMessage[];
+  /** Map of conversation states indexed by conversationId */
+  conversationSnapshots: Record<string, ConversationSnapshot>;
+  
+  /** Currently active conversation ID */
+  activeConversationId: string | null;
 
-  // =================================================================
-  // STREAMING & THINKING STATE
-  // Why: Manages the split-stream logic where thinking and content 
-  // are received asynchronously and must be kept in sync with the 
-  // UI's ThinkingPanel and MessageList.
-  // =================================================================
-  /** Whether currently receiving streamed response */
-  isStreaming: boolean;
-  /** ID of message currently being streamed */
-  currentStreamingId: string | null;
-  /** Accumulated thinking content */
-  thinkingContent: string;
-  /** Timestamp when thinking started */
-  thinkingStartTime: number | null;
-  /** Whether AI is in thinking phase */
-  isThinking: boolean;
-  /** Accumulated answer content */
-  currentContent: string;
-  /** Citation URLs from response */
-  currentCitations: string[];
-
-  // =================================================================
-  // INTERACTION & UTILITY STATE
-  // =================================================================
-  /** Selected text for quoting in ChatInput */
+  /** Selected text for quoting in ChatInput (global across sessions) */
   quotedText: string | null;
-  /** Current error if any */
-  error: Error | null;
-  /** Token usage from the backend */
+
+  /** Token usage metrics (global or active) */
   tokenUsage: { promptTokens?: number; completionTokens?: number; totalTokens?: number } | null;
 
-  // =================================================================
-  // SYSTEM MODES
-  // =================================================================
-  /** Whether explicitly requesting RAG contextual augmentation */
+  // Toggle modes (global settings)
   useRag: boolean;
-  /** Whether explicitly forcing the model to wrap reasoning in <think> */
   forceThink: boolean;
-
-  // =================================================================
-  // RAG VISUALIZATION STATE
-  // Why: Provides granular feedback about the background RAG pipeline 
-  // (dense/sparse search, reranking) before the first tokens arrive.
-  // =================================================================
-  /** Current phase of the RAG retrieval pipeline */
-  ragStatus: 'idle' | 'routing' | 'retrieving' | 'searching_dense' | 'searching_sparse' | 'reranking' | 'sources_ready' | 'generating' | 'done';
-  /** RAG domain-specific status message */
-  ragMessage: string;
-  /** Detailed RAG sources payload containing snippets and scores */
-  ragSources: CitationSource[];
 }
 
 /**
@@ -105,42 +92,51 @@ export interface ChatState {
  */
 export interface ChatActions {
   // =================================================================
-  // MESSAGE OPERATIONS
+  // SNAPSHOT OPERATIONS
+  // =================================================================
+  /** Set the active conversation and initialize snapshot if missing */
+  setActiveConversation: (id: string | null) => void;
+  /** Initialize or update a snapshot for a conversation */
+  setSnapshot: (id: string, snapshot: Partial<ConversationSnapshot>) => void;
+  /** Prune old snapshots to save memory */
+  pruneSnapshots: () => void;
+
+  // =================================================================
+  // MESSAGE OPERATIONS (Target active snapshot)
   // =================================================================
   addUserMessage: (content: string, conversationId: string) => string;
   addAssistantMessage: (conversationId: string) => string;
-  updateAssistantMessage: (id: string, updates: Partial<DisplayMessage>) => void;
-  setMessages: (messages: DisplayMessage[]) => void;
-  clearMessages: () => void;
-  removeMessage: (id: string) => void;
-  updateMessageContent: (id: string, content: string) => void;
+  updateAssistantMessage: (id: string, updates: Partial<DisplayMessage>, conversationId?: string) => void;
+  setMessages: (messages: DisplayMessage[], conversationId?: string) => void;
+  clearMessages: (conversationId?: string) => void;
+  removeMessage: (id: string, conversationId?: string) => void;
+  updateMessageContent: (id: string, content: string, conversationId?: string) => void;
 
   // =================================================================
-  // STREAMING LIFECYCLE
+  // STREAMING LIFECYCLE (Target active snapshot)
   // =================================================================
-  startStreaming: (messageId: string) => void;
-  appendThinkingContent: (content: string) => void;
-  endThinking: () => void;
-  appendContent: (content: string) => void;
-  endStreaming: () => void;
+  startStreaming: (messageId: string, conversationId?: string) => void;
+  appendThinkingContent: (content: string, conversationId?: string) => void;
+  endThinking: (conversationId?: string) => void;
+  appendContent: (content: string, conversationId?: string) => void;
+  endStreaming: (conversationId?: string) => void;
 
   // =================================================================
   // METADATA & UTILITY ACTIONS
   // =================================================================
-  setCitations: (citations: string[]) => void;
+  setCitations: (citations: string[], conversationId?: string) => void;
   setQuotedText: (text: string | null) => void;
-  setError: (error: Error | null) => void;
+  setError: (error: Error | null, conversationId?: string) => void;
   setTokenUsage: (usage: { promptTokens?: number; completionTokens?: number; totalTokens?: number }) => void;
-  resetStreamingState: () => void;
-  restoreStreamingState: (state: Partial<ChatState>) => void;
+  resetStreamingState: (conversationId?: string) => void;
 
   // =================================================================
   // MODE & RAG ACTIONS
   // =================================================================
   toggleRag: () => void;
   toggleThink: () => void;
-  setRagStatus: (status: 'idle' | 'routing' | 'retrieving' | 'searching_dense' | 'searching_sparse' | 'reranking' | 'sources_ready' | 'generating' | 'done', message?: string) => void;
-  setRagSources: (sources: CitationSource[]) => void;
+  setRagStatus: (status: 'idle' | 'routing' | 'retrieving' | 'searching_dense' | 'searching_sparse' | 'reranking' | 'sources_ready' | 'generating' | 'done', message?: string, conversationId?: string) => void;
+  setRagSources: (sources: CitationSource[], conversationId?: string) => void;
 }
 
 /**

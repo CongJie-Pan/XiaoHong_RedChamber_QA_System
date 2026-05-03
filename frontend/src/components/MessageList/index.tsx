@@ -9,6 +9,7 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import { ArrowDown } from 'lucide-react';
 import { useChatStore, chatSelectors } from '@/store/chat';
+import { QuoteProvider } from './QuoteContext';
 import { MessageItem } from './MessageItem';
 import { useStyles } from './styles';
 
@@ -41,17 +42,39 @@ export function MessageList({ className, onRegenerate, onEdit, onSelectSuggestio
   const userScrolledUpRef = useRef(false);
   const [showScrollButton, setShowScrollButton] = React.useState(false);
 
-  // Get state from store
+  // Get state from store via selectors
   const messages = useChatStore(chatSelectors.displayMessages);
-  const isStreaming = useChatStore((state) => state.isStreaming);
-  const currentStreamingId = useChatStore((state) => state.currentStreamingId);
-  const thinkingContent = useChatStore((state) => state.thinkingContent);
-  const isThinking = useChatStore((state) => state.isThinking);
+  const isStreaming = useChatStore(chatSelectors.isLoading);
+  const currentStreamingId = useChatStore((state) => {
+    const snap = state.activeConversationId ? state.conversationSnapshots[state.activeConversationId] : null;
+    return snap?.currentStreamingId || null;
+  });
+  const thinkingContent = useChatStore((state) => {
+    const snap = state.activeConversationId ? state.conversationSnapshots[state.activeConversationId] : null;
+    return snap?.thinkingContent || '';
+  });
+  const isThinking = useChatStore((state) => {
+    const snap = state.activeConversationId ? state.conversationSnapshots[state.activeConversationId] : null;
+    return snap?.isThinking || false;
+  });
+  const thinkingStartTime = useChatStore((state) => {
+    const snap = state.activeConversationId ? state.conversationSnapshots[state.activeConversationId] : null;
+    return snap?.thinkingStartTime || null;
+  });
 
   // RAG States
-  const ragStatus = useChatStore((state) => state.ragStatus);
-  const ragMessage = useChatStore((state) => state.ragMessage);
-  const ragSources = useChatStore((state) => state.ragSources);
+  const ragStatus = useChatStore((state) => {
+    const snap = state.activeConversationId ? state.conversationSnapshots[state.activeConversationId] : null;
+    return snap?.ragStatus || 'idle';
+  });
+  const ragMessage = useChatStore((state) => {
+    const snap = state.activeConversationId ? state.conversationSnapshots[state.activeConversationId] : null;
+    return snap?.ragMessage || '';
+  });
+  const ragSources = useChatStore((state) => {
+    const snap = state.activeConversationId ? state.conversationSnapshots[state.activeConversationId] : null;
+    return snap?.ragSources || [];
+  });
 
   // =================================================================
   // SCROLL MANAGEMENT LOGIC
@@ -177,46 +200,48 @@ export function MessageList({ className, onRegenerate, onEdit, onSelectSuggestio
 
   return (
     <div ref={containerRef} className={cx(styles.container, className)}>
-      {messages.map((message, index) => {
-        const isCurrentStreaming = message.id === currentStreamingId;
-        const isLast = index === messages.length - 1;
-        
-        // Detect if this is an assistant message following a user message
-        const isAssistantAfterUser = 
-          message.role === 'assistant' && 
-          index > 0 && 
-          messages[index - 1].role === 'user';
+      <QuoteProvider>
+        {messages.map((message, index) => {
+          const isCurrentStreaming = message.id === currentStreamingId;
+          const isLast = index === messages.length - 1;
+          
+          // Detect if this is an assistant message following a user message
+          const isAssistantAfterUser = 
+            message.role === 'assistant' && 
+            index > 0 && 
+            messages[index - 1].role === 'user';
 
-        return (
-          <MessageItem
-            key={message.id}
-            message={message}
-            isStreaming={isCurrentStreaming && isStreaming}
-            isLast={isLast}
-            className={isAssistantAfterUser ? 'assistant-after-user' : ''}
-            onSelectSuggestion={onSelectSuggestion}
-            thinking={
-              isCurrentStreaming
-                ? {
-                    content: thinkingContent,
-                    isThinking,
-                  }
-                : undefined
-            }
-            ragInfo={
-              isCurrentStreaming && isStreaming
-                ? {
-                    status: ragStatus,
-                    message: ragMessage,
-                    sources: ragSources,
-                  }
-                : undefined
-            }
-            onRegenerate={message.role === 'assistant' ? onRegenerate : undefined}
-            onEdit={message.role === 'user' ? onEdit : undefined}
-          />
-        );
-      })}
+          return (
+            <MessageItem
+              key={message.id}
+              message={message}
+              isStreaming={isCurrentStreaming && isStreaming}
+              isLast={isLast}
+              className={isAssistantAfterUser ? 'assistant-after-user' : ''}
+              onSelectSuggestion={onSelectSuggestion}
+              thinking={
+                isCurrentStreaming
+                  ? {
+                      content: thinkingContent,
+                      isThinking,
+                    }
+                  : undefined
+              }
+              ragInfo={
+                isCurrentStreaming && isStreaming
+                  ? {
+                      status: ragStatus,
+                      message: ragMessage,
+                      sources: ragSources,
+                    }
+                  : undefined
+              }
+              onRegenerate={message.role === 'assistant' ? onRegenerate : undefined}
+              onEdit={message.role === 'user' ? onEdit : undefined}
+            />
+          );
+        })}
+      </QuoteProvider>
 
       {/* Scroll to bottom button */}
       {showScrollButton && (

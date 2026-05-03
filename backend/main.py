@@ -11,7 +11,24 @@ from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-# ... (config and service imports)
+from backend.config import (
+    HF_TOKEN, 
+    HF_ENDPOINT_URL, 
+    OPENROUTER_API_KEY, 
+    SYSTEM_PROMPT_NORMAL,
+    SYSTEM_PROMPT_FORCE_THINK,
+    SYSTEM_PROMPT_WITH_RAG,
+    SYSTEM_PROMPT_WITH_RAG_THINK,
+    thread_pool
+)
+from backend.schemas import ChatRequest, TitleRequest
+from backend.services.llm_client import (
+    get_openrouter_client, 
+    get_hf_client, 
+    get_tokenizer, 
+    resolve_hf_model
+)
+from backend.services.rag_manager import rag_service, router_service, suggestion_service
 
 # =================================================================
 # STREAM GENERATORS (EXTRACTED FOR ARCHITECTURAL COMPLIANCE)
@@ -55,49 +72,6 @@ async def generate_title_stream(
     except Exception as e:
         yield f"data: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
     yield "data: [DONE]\n\n"
-
-# =================================================================
-# APP INITIALIZATION & SECURITY
-# ...
-# =================================================================
-
-app = FastAPI(title="XiaoHong Ancient Chinese QA - RAG Backend API")
-
-# ... (middleware config)
-
-# =================================================================
-# CONVERSATION MANAGEMENT ROUTES
-# These routes handle utility functions like title generation 
-# and raw document retrieval for citation inspection.
-# =================================================================
-
-@app.post("/api/v1/generate-title")
-async def generate_title_endpoint(request: Request, title_req: TitleRequest, offset: int = 0, limit: int = 20):
-    """
-    Generates a concise title using OpenRouter. 
-    We use a separate lightweight model (Qwen 7B) to avoid overloading 
-     the main RAG endpoint for simple summarization tasks.
-    """
-    effective_offset = offset or title_req.offset
-    effective_limit = limit or title_req.limit
-    
-    return StreamingResponse(
-        generate_title_stream(request, title_req, effective_offset, effective_limit), 
-        media_type="text/event-stream"
-    )
-
-@app.get("/api/v1/retrieve")
-async def retrieve_endpoint(query: str, top_k: int = 5, offset: int = 0, limit: int = 10):
-    """Search endpoint for raw snippets, used for debugging or dedicated search UI."""
-    mock_results = [{"text": "dummy content from dense search", "score": 0.99}]
-    return {
-        "results": mock_results[offset : offset + limit],
-        "pagination": {
-            "total": len(mock_results),
-            "offset": offset,
-            "limit": limit
-        }
-    }
 
 async def generate_chat_stream(
     request: Request, 
@@ -219,12 +193,51 @@ async def generate_chat_stream(
 
 # =================================================================
 # APP INITIALIZATION & SECURITY
-# ...
 # =================================================================
 
 app = FastAPI(title="XiaoHong Ancient Chinese QA - RAG Backend API")
 
-# ... (routes)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# =================================================================
+# CONVERSATION MANAGEMENT ROUTES
+# These routes handle utility functions like title generation 
+# and raw document retrieval for citation inspection.
+# =================================================================
+
+@app.post("/api/v1/generate-title")
+async def generate_title_endpoint(request: Request, title_req: TitleRequest, offset: int = 0, limit: int = 20):
+    """
+    Generates a concise title using OpenRouter. 
+    We use a separate lightweight model (Qwen 7B) to avoid overloading 
+     the main RAG endpoint for simple summarization tasks.
+    """
+    effective_offset = offset or title_req.offset
+    effective_limit = limit or title_req.limit
+    
+    return StreamingResponse(
+        generate_title_stream(request, title_req, effective_offset, effective_limit), 
+        media_type="text/event-stream"
+    )
+
+@app.get("/api/v1/retrieve")
+async def retrieve_endpoint(query: str, top_k: int = 5, offset: int = 0, limit: int = 10):
+    """Search endpoint for raw snippets, used for debugging or dedicated search UI."""
+    mock_results = [{"text": "dummy content from dense search", "score": 0.99}]
+    return {
+        "results": mock_results[offset : offset + limit],
+        "pagination": {
+            "total": len(mock_results),
+            "offset": offset,
+            "limit": limit
+        }
+    }
 
 @app.post("/api/v1/stream")
 async def stream_endpoint(request: Request, chat_req: ChatRequest, offset: int = 0, limit: int = 20):

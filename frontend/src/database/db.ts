@@ -39,7 +39,7 @@ class PerplexityQADatabase extends Dexie {
     // structure. Proper indexing is critical for performance as the 
     // number of messages grows.
     // =================================================================
-    this.version(1).stores({
+    this.version(2).stores({
       /**
        * conversations: 
        * id: Primary key
@@ -53,8 +53,9 @@ class PerplexityQADatabase extends Dexie {
        * conversationId: Used for fetching messages for a specific chat
        * [conversationId+createdAt]: Compound index for optimized chronological 
        * retrieval within a specific conversation.
+       * isStreaming: Used to identify messages that need background resumption.
        */
-      messages: 'id, conversationId, createdAt, [conversationId+createdAt]',
+      messages: 'id, conversationId, createdAt, [conversationId+createdAt], isStreaming',
 
       /**
        * settings: 

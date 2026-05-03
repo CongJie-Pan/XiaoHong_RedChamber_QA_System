@@ -14,6 +14,7 @@ import { Menu, X, AlertCircle } from 'lucide-react';
 import { App } from 'antd';
 import { useChatStore, chatSelectors } from '@/store/chat';
 import { useConversationStore, conversationSelectors } from '@/store/conversation';
+import { useConversationSwitch } from '@/hooks/useConversationSwitch';
 import { sendMessage, initializeChatService, cancelCurrentStream, regenerateMessage, editUserMessage } from '@/services/chat';
 import { ConversationList } from '@/components/ConversationList';
 import { MessageList } from '@/components/MessageList';
@@ -102,8 +103,8 @@ export function ChatContainer({ className }: ChatContainerProps) {
   // STORE SELECTORS
   // Why: Accessing global state via Zustand hooks for reactive updates.
   // =================================================================
-  const isStreaming = useChatStore((state) => state.isStreaming);
-  const error = useChatStore((state) => state.error);
+  const isStreaming = useChatStore(chatSelectors.isLoading);
+  const error = useChatStore(chatSelectors.error);
   const setError = useChatStore((state) => state.setError);
   const messages = useChatStore(chatSelectors.displayMessages);
   
@@ -122,22 +123,15 @@ export function ChatContainer({ className }: ChatContainerProps) {
   // LIFECYCLE EFFECTS
   // =================================================================
 
+  // Why: Manages message loading and background stream synchronization 
+  // during conversation switching.
+  useConversationSwitch(activeConversationId);
+
   // EFFECT: Component Initialization
   // Why: Setup necessary background services on application start.
   useEffect(() => {
     initializeChatService();
   }, []);
-
-  // EFFECT: Conversation Selection Sync
-  // Why: Ensures UI state (messages, streaming) is reset when changing contexts.
-  useEffect(() => {
-    // IF: No conversation is selected
-    // Why: Prevent showing orphaned messages when the user clears their selection.
-    if (!activeConversationId) {
-      useChatStore.getState().clearMessages();
-      useChatStore.getState().resetStreamingState();
-    }
-  }, [activeConversationId]);
 
   // =================================================================
   // EVENT HANDLERS

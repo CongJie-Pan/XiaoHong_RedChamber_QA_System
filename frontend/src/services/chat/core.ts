@@ -17,7 +17,6 @@ import { ValidationError, normalizeError } from '@/utils/error';
 import { sanitizeMessagesForAPI } from '@/utils/sanitizer';
 import type { ChatMessage } from '@/services/chat-stream/types';
 import type { Message } from '@/database/schema';
-import { getAbortController, setAbortController } from './state';
 
 /**
  * Prepare messages for API by filtering out invalid messages
@@ -76,6 +75,8 @@ export function validateMessageContent(content: string): void {
   }
 }
 
+import { streamManager } from './StreamManager';
+
 /**
  * Send a message and handle streaming response
  * @param content - User message content
@@ -87,19 +88,6 @@ export async function sendMessage(
 ): Promise<void> {
   validateMessageContent(content);
   const sanitizedContent = content.trim();
-
-  // IF: A stream is already active
-  // Why: Cancel the previous stream to prevent interleaved tokens 
-  // and prioritize the most recent user intent.
-  const prevController = getAbortController();
-  if (prevController) {
-    prevController.abort();
-    setAbortController(null);
-  }
-
-  const newController = new AbortController();
-  setAbortController(newController);
-  const abortSignal = newController.signal;
 
   const chatStore = useChatStore.getState();
   const conversationStore = useConversationStore.getState();
@@ -132,158 +120,97 @@ export async function sendMessage(
   // Why: Update the global active selection in the sidebar.
   if (isNewConversation) {
     conversationStore.selectConversation(activeConversationId);
+    chatStore.setActiveConversation(activeConversationId);
   }
 
   const assistantMessageId = chatStore.addAssistantMessage(activeConversationId);
-  chatStore.startStreaming(assistantMessageId);
+  
+  // Initialize snapshot and start streaming state
+  chatStore.startStreaming(assistantMessageId, activeConversationId);
 
-  const latestState = useChatStore.getState();
-  let messages = prepareMessagesForAPI(latestState.messages, assistantMessageId);
+  const snap = chatStore.conversationSnapshots[activeConversationId];
+  const messages = prepareMessagesForAPI(snap?.messages || [], assistantMessageId);
 
   // IF: Store state update was delayed
   // Why: Robustness check to ensure we always have at least 
   // the current message.
   if (messages.length === 0 && sanitizedContent) {
-    messages = [{
-      role: 'user',
+    // We use a simple fallback if message list is somehow empty
+    const fallbackMessages = [{
+      role: 'user' as const,
       content: sanitizedContent
     }];
-  }
-
-  // IF: Cannot prepare any valid messages
-  // Why: Abort early if the context is lost.
-  if (messages.length === 0) {
-    chatStore.resetStreamingState();
-    chatStore.setError(new Error('無法準備對話內容，請重新嘗試。'));
-    return;
-  }
-
-  // Why: Accumulate stream components in local variables for 
-  // final persistence batching.
-  let thinkingContent = '';
-  let thinkingStartTime: number | null = null;
-  let answerContent = '';
-  let citations: string[] = [];
-  let sourcesPayload: CitationSource[] = [];
-  let suggestionsList: string[] = [];
-
-  const conversationIdForSave = activeConversationId;
-
-  try {
-    await createChatStream(
-      messages,
-      {
-        onThinkingStart: () => {
-          // IF: Force-think mode is active
-          // Why: Track latency for the model's reasoning phase.
-          if (!latestState.forceThink) return;
-          thinkingStartTime = Date.now();
-        },
-
-        onThinkingContent: (chunk: string) => {
-          if (!latestState.forceThink) return;
-          thinkingContent += chunk;
-          chatStore.appendThinkingContent(chunk);
-        },
-
-        onThinkingEnd: () => {
-          if (!latestState.forceThink) return;
-          chatStore.endThinking();
-        },
-
-        onContent: (chunk: string) => {
-          answerContent += chunk;
-          chatStore.appendContent(chunk);
-        },
-
-        onCitations: (citationUrls: string[]) => {
-          citations = citationUrls;
-          chatStore.setCitations(citationUrls);
-        },
-
-        onStatus: (status: 'idle' | 'routing' | 'retrieving' | 'searching_dense' | 'searching_sparse' | 'reranking' | 'sources_ready' | 'generating' | 'done', message: string) => {
-          chatStore.setRagStatus(status, message);
-        },
-
-        onSources: (sources: CitationSource[]) => {
-          sourcesPayload = sources;
-          chatStore.setRagStatus('sources_ready');
-          chatStore.setRagSources(sources);
-        },
-
-        onSuggestions: (suggestions: string[]) => {
-          suggestionsList = suggestions;
-          chatStore.updateAssistantMessage(assistantMessageId, { suggestions });
-        },
-
-        onDone: async () => {
-          chatStore.endStreaming();
-
-          const thinkingDuration = thinkingStartTime
-            ? Date.now() - thinkingStartTime
-            : undefined;
-
-          // Why: Prepare a complete message object for persistence.
-          const messageData: Omit<Message, 'id' | 'conversationId' | 'createdAt'> = {
-            role: 'assistant',
-            content: answerContent,
-          };
-
-          // IF: Model produced reasoning trace
-          // Why: Persist thinking content separately for later audit/display.
-          if (thinkingContent) {
-            messageData.reasoning = {
-              content: thinkingContent,
-              duration: thinkingDuration,
-            };
-          }
-
-          if (citations.length > 0) {
-            messageData.citations = citations;
-          }
-
-          if (sourcesPayload.length > 0) {
-            messageData.sources = sourcesPayload;
-          }
-
-          if (suggestionsList.length > 0) {
-            messageData.suggestions = suggestionsList;
-          }
-
-          // Why: Final persistence to IndexedDB.
-          await databaseService.message.add(conversationIdForSave, messageData);
-
-          await conversationStore.loadConversations();
-
-          // IF: This is the first interaction in a conversation
-          // Why: Automatically generate a descriptive title based 
-          // on the actual dialogue content.
-          if (messages.length === 1 && answerContent) {
-            const titleMessages = [
-              ...messages,
-              { role: 'assistant', content: answerContent }
-            ];
-            useConversationStore.getState().generateTitle(conversationIdForSave, titleMessages);
-          }
-
-          setAbortController(null);
-        },
-
-        onError: (error: Error) => {
-          chatStore.setError(error);
-          chatStore.endStreaming();
-          setAbortController(null);
-        },
-      },
-      abortSignal,
+    
+    // Start the stream via StreamManager
+    await streamManager.startStream(
+      activeConversationId,
+      assistantMessageId,
+      fallbackMessages,
       chatStore.useRag,
       chatStore.forceThink
     );
-  } catch (error) {
-    setAbortController(null);
-    const err = normalizeError(error);
-    chatStore.setError(err);
-    chatStore.endStreaming();
-    throw err;
+  } else if (messages.length > 0) {
+    // Start the stream via StreamManager
+    await streamManager.startStream(
+      activeConversationId,
+      assistantMessageId,
+      messages,
+      chatStore.useRag,
+      chatStore.forceThink
+    );
+  } else {
+    chatStore.resetStreamingState(activeConversationId);
+    chatStore.setError(new Error('無法準備對話內容，請重新嘗試。'), activeConversationId);
+    return;
   }
+
+  // Subscribe the UI to updates for this conversation
+  // Note: useConversationSwitch also subscribes, but we need an immediate 
+  // link here to ensure the very first chunks are captured if they arrive 
+  // before the hook re-runs.
+  const unsubscribe = streamManager.subscribe(activeConversationId, (update) => {
+    // Why: Use specific conversationId to target the correct snapshot.
+    // This allows the store to be updated even if the user switches away.
+    switch (update.type) {
+      case 'content':
+        if (update.chunk) chatStore.appendContent(update.chunk, activeConversationId);
+        break;
+      case 'thinking':
+        if (update.chunk) chatStore.appendThinkingContent(update.chunk, activeConversationId);
+        break;
+      case 'thinking_end':
+        chatStore.endThinking(activeConversationId);
+        break;
+      case 'citations':
+        if (update.citations) chatStore.setCitations(update.citations, activeConversationId);
+        break;
+      case 'status':
+        chatStore.setRagStatus(update.status, update.message, activeConversationId);
+        break;
+      case 'sources':
+        if (update.sources) chatStore.setRagSources(update.sources, activeConversationId);
+        break;
+      case 'suggestions':
+        if (update.suggestions) chatStore.updateAssistantMessage(assistantMessageId, { suggestions: update.suggestions }, activeConversationId);
+        break;
+      case 'done':
+        chatStore.endStreaming(activeConversationId);
+        // Trigger title generation if first message
+        if (messages.length === 1 || (messages.length === 0 && sanitizedContent)) {
+           const finalContent = streamManager.getSessionState(activeConversationId!)?.content || '';
+           const titleMessages = [
+              { role: 'user' as const, content: sanitizedContent },
+              { role: 'assistant' as const, content: finalContent }
+           ];
+           useConversationStore.getState().generateTitle(activeConversationId!, titleMessages);
+        }
+        unsubscribe();
+        break;
+      case 'error':
+        if (update.error) chatStore.setError(update.error, activeConversationId);
+        unsubscribe();
+        break;
+    }
+  });
 }
+

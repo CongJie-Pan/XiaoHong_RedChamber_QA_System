@@ -129,8 +129,23 @@ export interface Message {
     searchContextSize: 'low' | 'medium' | 'high';
   };
   
-  /** Timestamp of when the message was recorded */
+  /** 
+   * Timestamp of when the message was recorded 
+   */
   createdAt: Date;
+
+  /**
+   * Whether this message is currently being streamed in the background.
+   * Why: Allows the UI to identify messages that are still being updated
+   * even if the conversation is not active.
+   */
+  isStreaming?: boolean;
+
+  /**
+   * Whether this message contains partial content due to an interruption.
+   * Why: Provides a visual hint to the user that the response was cut short.
+   */
+  isPartial?: boolean;
 }
 
 /**

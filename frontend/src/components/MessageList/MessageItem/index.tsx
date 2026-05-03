@@ -9,7 +9,7 @@
 // Principle.
 // =================================================================
 
-import React, { memo, useMemo } from 'react';
+import React, { memo, useMemo, useEffect } from 'react';
 import type { CitationSource } from '@/components/Citations';
 import type { DisplayMessage } from '@/store/chat';
 import { useStyles } from '../styles';
@@ -78,7 +78,18 @@ export const MessageItem = memo(function MessageItem({
     handleCancelEdit,
     handleSaveEdit,
     handleEditKeyDown,
+    registerMessageRef,
   } = useMessageItem({ message, onRegenerate, onEdit });
+
+  // Why: Register the message's main DOM node in the global registry 
+  // to allow searching and jumping across different message items.
+  useEffect(() => {
+    const el = bubbleRef.current;
+    if (el) {
+      registerMessageRef(message.id, el);
+    }
+    return () => registerMessageRef(message.id, null);
+  }, [message.id, registerMessageRef, bubbleRef]);
 
   // Why: Memoize markdown components to prevent unnecessary 
   // re-renders of the Markdown renderer.
@@ -107,6 +118,7 @@ export const MessageItem = memo(function MessageItem({
           onEditClick={handleEditClick}
           onCopy={handleCopy}
           onQuoteClick={handleQuoteClick}
+          bubbleRef={bubbleRef}
         />
       ) : (
         <AssistantBubble

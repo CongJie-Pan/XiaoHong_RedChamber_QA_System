@@ -6,101 +6,163 @@
 // they depend on changes.
 // =================================================================
 
-import type { ChatState, ThinkingState, DisplayMessage } from './types';
+import type { ChatState, ThinkingState, DisplayMessage, ConversationSnapshot } from './types';
+
+const EMPTY_MESSAGES: DisplayMessage[] = [];
+const EMPTY_CITATIONS: string[] = [];
+const DEFAULT_THINKING: ThinkingState = {
+  content: '',
+  isThinking: false,
+  startTime: null,
+};
+
+/**
+ * Helper to get active snapshot
+ */
+const getActiveSnapshot = (state: ChatState): ConversationSnapshot | undefined => {
+  if (!state.activeConversationId) return undefined;
+  return state.conversationSnapshots[state.activeConversationId];
+};
 
 /**
  * Chat selectors for accessing derived state
+ * 
+ * IMPORTANT: These must return stable references for empty/default states 
+ * to prevent React infinite re-render loops.
  */
 export const chatSelectors = {
   /**
    * Get all messages for display
-   * @returns Array of display messages
    */
-  displayMessages: (state: ChatState): DisplayMessage[] => state.messages,
+  displayMessages: (state: ChatState): DisplayMessage[] => 
+    getActiveSnapshot(state)?.messages || EMPTY_MESSAGES,
 
   /**
    * Get the current thinking state
-   * Includes calculated duration for real-time display
-   * @returns ThinkingState object
    */
-  currentThinking: (state: ChatState): ThinkingState => ({
-    content: state.thinkingContent,
-    isThinking: state.isThinking,
-    startTime: state.thinkingStartTime,
-    // Why: Calculate duration on-the-fly to provide a live-updating 
-    // timer in the ThinkingPanel without persisting every tick to the store.
-    duration: state.thinkingStartTime
-      ? Date.now() - state.thinkingStartTime
-      : undefined,
-  }),
+  currentThinking: (state: ChatState): ThinkingState => {
+    const snap = getActiveSnapshot(state);
+    if (!snap) return DEFAULT_THINKING;
+    
+    // We only return a new object if the underlying content or status changed.
+    // In a real high-perf app, we might use useShallow in components instead.
+    return {
+      content: snap.thinkingContent,
+      isThinking: snap.isThinking,
+      startTime: snap.thinkingStartTime,
+      duration: snap.thinkingStartTime
+        ? Date.now() - snap.thinkingStartTime
+        : undefined,
+    };
+  },
 
   /**
    * Check if currently loading/streaming
-   * @returns boolean
    */
-  isLoading: (state: ChatState): boolean => state.isStreaming,
+  isLoading: (state: ChatState): boolean => 
+    getActiveSnapshot(state)?.isStreaming || false,
 
   /**
    * Get current citations
-   * @returns Array of citation URLs
    */
-  citations: (state: ChatState): string[] => state.currentCitations,
+  citations: (state: ChatState): string[] => 
+    getActiveSnapshot(state)?.currentCitations || EMPTY_CITATIONS,
 
   /**
    * Get current error
-   * @returns Error or null
    */
-  error: (state: ChatState): Error | null => state.error,
+  error: (state: ChatState): Error | null => 
+    getActiveSnapshot(state)?.error || null,
 
   /**
    * Get the message currently being streamed
-   * @returns DisplayMessage or undefined
    */
   streamingMessage: (state: ChatState): DisplayMessage | undefined => {
-    // IF: No active stream
-    // Why: Safety check to avoid unnecessary searches.
-    if (!state.currentStreamingId) return undefined;
+    const snap = getActiveSnapshot(state);
+    if (!snap || !snap.currentStreamingId) return undefined;
     
-    return state.messages.find((msg) => msg.id === state.currentStreamingId);
+    return snap.messages.find((msg) => msg.id === snap.currentStreamingId);
   },
 
   /**
    * Get the last message in the conversation
-   * @returns DisplayMessage or undefined
    */
   lastMessage: (state: ChatState): DisplayMessage | undefined => {
-    return state.messages[state.messages.length - 1];
+    const messages = getActiveSnapshot(state)?.messages || EMPTY_MESSAGES;
+    return messages[messages.length - 1];
   },
 
   /**
    * Get message count
-   * @returns number
    */
-  messageCount: (state: ChatState): number => state.messages.length,
+  messageCount: (state: ChatState): number => 
+    getActiveSnapshot(state)?.messages.length || 0,
 
   /**
    * Check if conversation is empty
-   * @returns boolean
    */
-  isEmpty: (state: ChatState): boolean => state.messages.length === 0,
+  isEmpty: (state: ChatState): boolean => 
+    (getActiveSnapshot(state)?.messages.length || 0) === 0,
 
   /**
    * Get accumulated answer content being streamed
-   * @returns string
    */
-  currentContent: (state: ChatState): string => state.currentContent,
+  currentContent: (state: ChatState): string => 
+    getActiveSnapshot(state)?.currentContent || '',
+};
+
+  /**
+   * Get current error
+   */
+  error: (state: ChatState): Error | null => 
+    getActiveSnapshot(state)?.error || null,
+
+  /**
+   * Get the message currently being streamed
+   */
+  streamingMessage: (state: ChatState): DisplayMessage | undefined => {
+    const snap = getActiveSnapshot(state);
+    if (!snap || !snap.currentStreamingId) return undefined;
+    
+    return snap.messages.find((msg) => msg.id === snap.currentStreamingId);
+  },
+
+  /**
+   * Get the last message in the conversation
+   */
+  lastMessage: (state: ChatState): DisplayMessage | undefined => {
+    const messages = getActiveSnapshot(state)?.messages || [];
+    return messages[messages.length - 1];
+  },
+
+  /**
+   * Get message count
+   */
+  messageCount: (state: ChatState): number => 
+    getActiveSnapshot(state)?.messages.length || 0,
+
+  /**
+   * Check if conversation is empty
+   */
+  isEmpty: (state: ChatState): boolean => 
+    (getActiveSnapshot(state)?.messages.length || 0) === 0,
+
+  /**
+   * Get accumulated answer content being streamed
+   */
+  currentContent: (state: ChatState): string => 
+    getActiveSnapshot(state)?.currentContent || '',
 };
 
 // =================================================================
 // HOOK-FRIENDLY SELECTOR CREATORS
-// Why: Standalone functions optimized for use with the useChatStore 
-// hook, reducing boilerplate in component files.
 // =================================================================
-export const selectDisplayMessages = (state: ChatState) => state.messages;
-export const selectIsStreaming = (state: ChatState) => state.isStreaming;
-export const selectIsThinking = (state: ChatState) => state.isThinking;
-export const selectThinkingContent = (state: ChatState) => state.thinkingContent;
-export const selectCurrentContent = (state: ChatState) => state.currentContent;
-export const selectCitations = (state: ChatState) => state.currentCitations;
-export const selectError = (state: ChatState) => state.error;
+export const selectDisplayMessages = (state: ChatState) => chatSelectors.displayMessages(state);
+export const selectIsStreaming = (state: ChatState) => chatSelectors.isLoading(state);
+export const selectIsThinking = (state: ChatState) => chatSelectors.currentThinking(state).isThinking;
+export const selectThinkingContent = (state: ChatState) => chatSelectors.currentThinking(state).content;
+export const selectCurrentContent = (state: ChatState) => chatSelectors.currentContent(state);
+export const selectCitations = (state: ChatState) => chatSelectors.citations(state);
+export const selectError = (state: ChatState) => chatSelectors.error(state);
+
 

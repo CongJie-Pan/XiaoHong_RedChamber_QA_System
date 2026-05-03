@@ -11,6 +11,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { App } from 'antd';
 import type { DisplayMessage } from '@/store/chat';
+import { useQuote } from '../QuoteContext';
 
 interface UseMessageItemProps {
   message: DisplayMessage;
@@ -20,74 +21,19 @@ interface UseMessageItemProps {
 
 export function useMessageItem({ message, onRegenerate, onEdit }: UseMessageItemProps) {
   const { message: antMessageApi } = App.useApp();
+  const { registerMessageRef, handleQuoteClick: jumpToQuote } = useQuote();
   const bubbleRef = useRef<HTMLDivElement>(null);
-
-  type WindowFind = (
-    text: string,
-    caseSensitive?: boolean,
-    backwards?: boolean,
-    wrap?: boolean,
-    wholeWord?: boolean,
-    searchInFrames?: boolean,
-    showDialog?: boolean
-  ) => boolean;
 
   // =================================================================
   // TEXT HIGHLIGHTING LOGIC
   // Why: Provides a visual link between citation quotes and the 
   // original text, improving the user's ability to verify sources.
+  // Using global QuoteContext for cross-message jumping.
   // =================================================================
   const handleQuoteClick = useCallback((quoteText: string) => {
-    if (!bubbleRef.current || !quoteText) return;
-
-    const selection = window.getSelection();
-    if (selection) selection.removeAllRanges();
-
-    // 1. Precise TreeWalker-based highlighting
-    const walk = document.createTreeWalker(bubbleRef.current, NodeFilter.SHOW_TEXT, null);
-    let node;
-    let found = false;
-    
-    while ((node = walk.nextNode())) {
-      const text = node.textContent || '';
-      const index = text.indexOf(quoteText);
-      
-      if (index !== -1 && node.parentElement) {
-        if (node.parentElement.closest('.interactive-quote')) continue;
-
-        node.parentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-        try {
-          const range = document.createRange();
-          range.setStart(node, index);
-          range.setEnd(node, index + quoteText.length);
-          
-          if (selection) {
-            selection.addRange(range);
-            found = true;
-          }
-        } catch (e) {
-          console.warn('Range highlight failed, falling back:', e);
-        }
-        break;
-      }
-    }
-
-    // 2. Browser native fallback
-    const windowWithFind = window as Window & { find?: WindowFind };
-    if (!found && typeof windowWithFind.find === 'function') {
-      const res = windowWithFind.find(quoteText, false, false, true, false, true, false);
-      if (res) found = true;
-    }
-
-
-    // 3. Auto-clear selection
-    if (found) {
-      setTimeout(() => {
-        window.getSelection()?.removeAllRanges();
-      }, 6000);
-    }
-  }, []);
+    if (!quoteText) return;
+    jumpToQuote(quoteText);
+  }, [jumpToQuote]);
 
   // =================================================================
   // ACTION HANDLERS

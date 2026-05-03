@@ -457,4 +457,27 @@ code: css`...
       background: rgba(255, 255, 255, 0.05);
     }
   `,
+
+  // =================================================================
+  // GLOBAL HIGHLIGHT STYLES
+  // Why: Provides visual feedback when jumping to original text from 
+  // a citation. Supports both modern Highlight API and legacy mark.
+  // =================================================================
+  '@global': {
+    '::highlight(quote-highlight)': css`
+      background-color: rgba(250, 204, 21, 0.5);
+      color: inherit;
+    `,
+    'mark.quote-highlight': css`
+      background-color: rgba(250, 204, 21, 0.5);
+      color: inherit;
+      border-radius: 2px;
+      animation: fadeHighlight 3s forwards;
+    `,
+    '@keyframes fadeHighlight': css`
+      0%   { background-color: rgba(250, 204, 21, 0.6); }
+      70%  { background-color: rgba(250, 204, 21, 0.4); }
+      100% { background-color: transparent; }
+    `,
+  },
 }));

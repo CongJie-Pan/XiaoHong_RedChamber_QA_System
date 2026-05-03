@@ -30,6 +30,7 @@ interface UserBubbleProps {
   onEditClick: () => void;
   onCopy: () => void;
   onQuoteClick: (text: string) => void;
+  bubbleRef: React.RefObject<HTMLDivElement | null>;
 }
 
 
@@ -48,10 +49,11 @@ export const UserBubble: React.FC<UserBubbleProps> = ({
   onEditClick,
   onCopy,
   onQuoteClick,
+  bubbleRef,
 }) => {
   if (isEditing) {
     return (
-      <div className={styles.editModeContainer}>
+      <div ref={bubbleRef} className={styles.editModeContainer}>
         <textarea
           className={styles.editTextarea}
           value={editContent}
@@ -80,7 +82,7 @@ export const UserBubble: React.FC<UserBubbleProps> = ({
   }
 
   return (
-    <div className={cx(styles.bubbleWrapper, 'bubbleWrapper')}>
+    <div ref={bubbleRef} className={cx(styles.bubbleWrapper, 'bubbleWrapper')}>
       {(() => {
         // Pattern matches one or more lines starting with '>' at the beginning
         const quoteMatch = message.content.match(/^((?:>[^\n]*(?:\n|$))+)\n*([\s\S]*)$/);

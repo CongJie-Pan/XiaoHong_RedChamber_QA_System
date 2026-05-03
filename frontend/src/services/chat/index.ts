@@ -6,7 +6,6 @@
 // Responsibility Principle while maintaining a clean public API.
 // =================================================================
 
-export * from './state';
 export * from './core';
 export * from './lifecycle';
 export * from './mutations';
