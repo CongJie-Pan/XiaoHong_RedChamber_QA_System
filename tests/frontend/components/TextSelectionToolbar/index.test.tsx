@@ -1,11 +1,11 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { App } from 'antd';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TextSelectionToolbar } from '@/components/TextSelectionToolbar';
 import { useTextSelection } from '@/hooks/useTextSelection';
 import { useChatStore } from '@/store/chat';
 import { sendMessage } from '@/services/chat';
-import { App } from 'antd';
 
 // Mock the hook and other modules
 vi.mock('@/hooks/useTextSelection');
@@ -16,26 +16,8 @@ vi.mock('@/services/chat', () => ({
   sendMessage: vi.fn(),
 }));
 
-// Mock Ant Design App.useApp
-const mockMessage = {
-  success: vi.fn(),
-  error: vi.fn(),
-  warning: vi.fn(),
-  info: vi.fn(),
-};
+// Mock Ant Design
 
-vi.mock('antd', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('antd')>();
-  return {
-    ...actual,
-    App: {
-      ...actual.App,
-      useApp: () => ({
-        message: mockMessage,
-      }),
-    },
-  };
-});
 
 describe('TextSelectionToolbar', () => {
   const mockClearSelection = vi.fn();
@@ -43,6 +25,16 @@ describe('TextSelectionToolbar', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(App, 'useApp').mockReturnValue({
+      message: {
+        success: vi.fn(),
+        error: vi.fn(),
+        warning: vi.fn(),
+        info: vi.fn(),
+      },
+      notification: {} as any,
+      modal: {} as any,
+    });
     
     // Default mock implementation
     (useTextSelection as any).mockReturnValue({

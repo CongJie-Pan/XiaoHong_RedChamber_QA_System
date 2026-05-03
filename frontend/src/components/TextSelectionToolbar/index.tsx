@@ -2,7 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { Copy, Quote, Sparkles } from 'lucide-react';
-import { Tooltip, App } from 'antd';
+import { App } from 'antd';
 import { useChatStore } from '@/store/chat';
 import { sendMessage } from '@/services/chat';
 import { useTextSelection } from '@/hooks/useTextSelection';

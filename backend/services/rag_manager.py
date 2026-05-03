@@ -8,12 +8,12 @@ import sys
 from pathlib import Path
 
 # =================================================================
-# CROSS-MODULE DEPENDENCY RESOLUTION
-# Since the core logic resides in src/main/python/ (outside the 
-# backend package), we dynamically inject it into sys.path. 
-# This ensures that internal imports within the core services 
-# resolve correctly without requiring complex packaging.
+# PROJECT PATH RESOLUTION
+# We resolve the project root path to locate local data assets 
+# (FAISS/BM25 indices) stored in the /data directory.
 # =================================================================
+
+project_root = Path(__file__).resolve().parents[2]
 
 from backend.services.rag_service import RAGService
 from backend.services.router_service import RouterService

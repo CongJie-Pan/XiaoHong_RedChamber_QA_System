@@ -34,6 +34,8 @@ class ChatRequest(BaseModel):
     top_p: float = 0.9
     max_tokens: int = 2048
     repetition_penalty: float = 1.15
+    offset: int = 0
+    limit: int = 20
 
 # =================================================================
 # UTILITY SCHEMAS
@@ -43,3 +45,5 @@ class ChatRequest(BaseModel):
 
 class TitleRequest(BaseModel):
     messages: List[Dict[str, str]]
+    offset: int = 0
+    limit: int = 20

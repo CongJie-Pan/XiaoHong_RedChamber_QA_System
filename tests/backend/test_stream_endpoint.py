@@ -48,7 +48,7 @@ async def test_sse_streaming_sequence_with_rag():
         mock_suggestion.generate_suggestions = AsyncMock(return_value=["延伸問題1", "延伸問題2", "延伸問題3"])
         
         # We also need to patch AsyncOpenAI so it doesn't try to call HF endpoint
-        with patch('backend.main.AsyncOpenAI') as mock_openai:
+        with patch('backend.services.llm_client.AsyncOpenAI') as mock_openai:
             mock_client = MagicMock()
             mock_client.completions = MagicMock()
             mock_client.completions.create = AsyncMock()

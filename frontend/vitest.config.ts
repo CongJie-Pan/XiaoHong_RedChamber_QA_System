@@ -35,6 +35,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      'antd': path.resolve(__dirname, './node_modules/antd'),
       'react': path.resolve(__dirname, './node_modules/react'),
       'react-dom': path.resolve(__dirname, './node_modules/react-dom'),
       '@testing-library/react': path.resolve(__dirname, './node_modules/@testing-library/react'),

@@ -10,7 +10,7 @@ from backend.main import app
 @pytest.mark.asyncio
 async def test_generate_title_missing_api_key():
     # 模擬 OPENROUTER_API_KEY 遺失
-    with patch('backend.main.os.environ.get', return_value=None):
+    with patch('backend.main.OPENROUTER_API_KEY', None):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             req_data = {
                 "messages": [{"role": "user", "content": "你好"}]
@@ -26,8 +26,8 @@ async def test_generate_title_missing_api_key():
 @pytest.mark.asyncio
 async def test_generate_title_success():
     # 模擬 OPENROUTER_API_KEY 存在
-    with patch('backend.main.os.environ.get', return_value="mock-key"):
-        with patch('backend.main.AsyncOpenAI') as mock_openai:
+    with patch('backend.main.OPENROUTER_API_KEY', 'mock-key'):
+        with patch('backend.services.llm_client.AsyncOpenAI') as mock_openai:
             mock_client = MagicMock()
             
             async def fake_create(*args, **kwargs):
@@ -66,8 +66,8 @@ async def test_generate_title_success():
 @pytest.mark.asyncio
 async def test_generate_title_api_error():
     # 模擬 OPENROUTER_API_KEY 存在，但 API 呼叫異常
-    with patch('backend.main.os.environ.get', return_value="mock-key"):
-        with patch('backend.main.AsyncOpenAI') as mock_openai:
+    with patch('backend.main.OPENROUTER_API_KEY', 'mock-key'):
+        with patch('backend.services.llm_client.AsyncOpenAI') as mock_openai:
             mock_client = MagicMock()
             
             async def fake_create_error(*args, **kwargs):

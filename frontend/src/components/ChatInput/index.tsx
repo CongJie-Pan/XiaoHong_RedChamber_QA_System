@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Send, Square, Brain, Database, Quote, X, CornerDownRight } from 'lucide-react';
+import { Send, Square, Brain, Database, X, CornerDownRight } from 'lucide-react';
 import { message, Tooltip } from 'antd';
 import { useChatStore } from '@/store/chat';
 import { useConversationStore } from '@/store/conversation';
@@ -111,9 +111,15 @@ export function ChatInput({
   // Why: Prevents accidental message leakage between different
   // conversation contexts.
   useEffect(() => {
-    setValue('');
-    setQuotedText(null);
+    // Why: Use setTimeout to avoid synchronous state updates during 
+    // the render phase, which can trigger cascading render warnings.
+    const timer = setTimeout(() => {
+      setValue('');
+      setQuotedText(null);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [activeConversationId, setQuotedText]);
+
 
   // =================================================================
   // EVENT HANDLERS

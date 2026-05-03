@@ -14,7 +14,7 @@ import { Menu, X, AlertCircle } from 'lucide-react';
 import { App } from 'antd';
 import { useChatStore, chatSelectors } from '@/store/chat';
 import { useConversationStore, conversationSelectors } from '@/store/conversation';
-import { sendMessage, loadMessages, initializeChatService, cancelCurrentStream, regenerateMessage, editUserMessage } from '@/services/chat';
+import { sendMessage, initializeChatService, cancelCurrentStream, regenerateMessage, editUserMessage } from '@/services/chat';
 import { ConversationList } from '@/components/ConversationList';
 import { MessageList } from '@/components/MessageList';
 import { ChatInput } from '@/components/ChatInput';
