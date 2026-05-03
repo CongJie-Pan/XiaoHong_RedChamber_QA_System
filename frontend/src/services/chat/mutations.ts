@@ -92,7 +92,7 @@ export async function regenerateMessage(messageId: string): Promise<void> {
         if (update.suggestions) chatStore.updateAssistantMessage(assistantMessageId, { suggestions: update.suggestions }, activeConversationId);
         break;
       case 'done':
-        chatStore.endStreaming(activeConversationId);
+        chatStore.endStreaming(activeConversationId, update.suggestions);
         if (apiMessages.length === 1) {
            const finalContent = streamManager.getSessionState(activeConversationId!)?.content || '';
            const titleMessages = [
@@ -197,7 +197,7 @@ export async function editUserMessage(
         if (update.suggestions) chatStore.updateAssistantMessage(assistantMessageId, { suggestions: update.suggestions }, activeConversationId);
         break;
       case 'done':
-        chatStore.endStreaming(activeConversationId);
+        chatStore.endStreaming(activeConversationId, update.suggestions);
         if (apiMessages.length === 1) {
            const finalContent = streamManager.getSessionState(activeConversationId!)?.content || '';
            const titleMessages = [

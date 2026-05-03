@@ -194,7 +194,7 @@ export async function sendMessage(
         if (update.suggestions) chatStore.updateAssistantMessage(assistantMessageId, { suggestions: update.suggestions }, activeConversationId);
         break;
       case 'done':
-        chatStore.endStreaming(activeConversationId);
+        chatStore.endStreaming(activeConversationId, update.suggestions);
         // Trigger title generation if first message
         if (messages.length === 1 || (messages.length === 0 && sanitizedContent)) {
            const finalContent = streamManager.getSessionState(activeConversationId!)?.content || '';

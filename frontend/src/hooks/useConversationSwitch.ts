@@ -43,24 +43,28 @@ export function useConversationSwitch(conversationId: string | null) {
     let isMounted = true;
 
     async function activate() {
+      // Why: TypeScript doesn't track that conversationId is non-null 
+      // inside an async closure even after the guard above.
+      const activeId = conversationId!;
+
       // 1. Set active conversation in store (initializes snapshot if missing)
-      setActiveConversation(conversationId);
+      setActiveConversation(activeId);
 
       // 2. Load historical messages from IndexedDB
       try {
-        const messages = await databaseService.message.getByConversationId(conversationId);
+        const messages = await databaseService.message.getByConversationId(activeId);
         if (!isMounted) return;
-        setMessages(messages, conversationId);
+        setMessages(messages, activeId);
 
         // 3. Check if there's a background stream running for this conversation
-        const backgroundState = streamManager.getSessionState(conversationId);
+        const backgroundState = streamManager.getSessionState(activeId);
         if (backgroundState) {
           // Sync existing buffer to store
-          startStreaming('', conversationId); // Reset state but keep messages
+          startStreaming('', activeId); // Reset state but keep messages
           if (backgroundState.thinking) {
              // We don't have a clean way to "replay" thinking vs content perfectly 
              // without more metadata, but we can set the latest values.
-             useChatStore.getState().setSnapshot(conversationId, {
+             useChatStore.getState().setSnapshot(activeId, {
                thinkingContent: backgroundState.thinking,
                isThinking: backgroundState.isThinking,
                currentContent: backgroundState.content,
@@ -73,36 +77,36 @@ export function useConversationSwitch(conversationId: string | null) {
 
           // 4. Subscribe to future updates
           unsubscribeRef.current?.();
-          unsubscribeRef.current = streamManager.subscribe(conversationId, (update: StreamUpdate) => {
+          unsubscribeRef.current = streamManager.subscribe(activeId, (update: StreamUpdate) => {
             if (!isMounted) return;
 
             switch (update.type) {
               case 'content':
-                if (update.chunk) appendContent(update.chunk, conversationId);
+                if (update.chunk) appendContent(update.chunk, activeId);
                 break;
               case 'thinking':
-                if (update.chunk) appendThinkingContent(update.chunk, conversationId);
+                if (update.chunk) appendThinkingContent(update.chunk, activeId);
                 break;
               case 'thinking_end':
-                endThinking(conversationId);
+                endThinking(activeId);
                 break;
               case 'citations':
-                if (update.citations) setCitations(update.citations, conversationId);
+                if (update.citations) setCitations(update.citations, activeId);
                 break;
               case 'status':
-                setRagStatus(update.status, update.message, conversationId);
+                setRagStatus(update.status, update.message, activeId);
                 break;
               case 'sources':
-                if (update.sources) setRagSources(update.sources, conversationId);
+                if (update.sources) setRagSources(update.sources, activeId);
                 break;
               case 'suggestions':
-                if (update.suggestions) updateAssistantMessage('', { suggestions: update.suggestions }, conversationId);
+                if (update.suggestions) updateAssistantMessage('', { suggestions: update.suggestions }, activeId);
                 break;
               case 'done':
-                endStreaming(conversationId);
+                endStreaming(activeId, update.suggestions);
                 break;
               case 'error':
-                if (update.error) setError(update.error, conversationId);
+                if (update.error) setError(update.error, activeId);
                 break;
             }
           });

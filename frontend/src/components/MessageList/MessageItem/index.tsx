@@ -27,6 +27,7 @@ export interface MessageItemProps {
   thinking?: {
     content: string;
     isThinking: boolean;
+    startTime?: number | null;
     duration?: number;
   };
   /** RAG status metadata */

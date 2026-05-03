@@ -183,8 +183,10 @@ async def generate_chat_stream(
         if suggestion_service:
             results = context_results_obj.final_results if (chat_req.use_rag and context_results_obj) else []
             suggestions = await suggestion_service.generate_suggestions(last_user_msg, answer_accumulator, results)
-            if suggestions:
-                yield f"event: suggestions\ndata: {json.dumps(suggestions, ensure_ascii=False)}\n\n"
+            # Bundle suggestions into a 'done' event to ensure atomic update on frontend
+            yield f"event: done\ndata: {json.dumps({'suggestions': suggestions or []}, ensure_ascii=False)}\n\n"
+        else:
+            yield f"event: done\ndata: {json.dumps({'suggestions': []}, ensure_ascii=False)}\n\n"
         
         yield "data: [DONE]\n\n"
     except Exception as e:

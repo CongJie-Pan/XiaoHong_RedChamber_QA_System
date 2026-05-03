@@ -36,6 +36,28 @@ async def test_suggestion_service_success():
         assert "賈寶玉的性格特點？" in suggestions
         assert mock_client.chat.completions.create.called
 
+def test_extract_json_array_logic():
+    service = SuggestionService(api_key="test_key")
+    
+    # 1. Test standard JSON object
+    case1 = '{"suggestions": ["q1", "q2"]}'
+    assert service._extract_json_array(case1) == ["q1", "q2"]
+    
+    # 2. Test Markdown code block
+    case2 = 'Here is your JSON:\n```json\n{"suggestions": ["q3", "q4"]}\n```'
+    assert service._extract_json_array(case2) == ["q3", "q4"]
+    
+    # 3. Test raw array (fallback)
+    case3 = '["q5", "q6"]'
+    assert service._extract_json_array(case3) == ["q5", "q6"]
+
+    # 4. Test malformed but contains strings in quotes
+    case4 = 'I recommend: "question one" and "question two" for you.'
+    # Note: _extract_json_array uses regex for strings between 5-35 chars
+    result = service._extract_json_array(case4)
+    assert "question one" in result
+    assert "question two" in result
+
 @pytest.mark.asyncio
 async def test_suggestion_service_malformed_json():
     # Test that the service fails gracefully with malformed JSON

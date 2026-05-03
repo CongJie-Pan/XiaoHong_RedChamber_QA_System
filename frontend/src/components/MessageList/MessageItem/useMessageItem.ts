@@ -97,5 +97,6 @@ export function useMessageItem({ message, onRegenerate, onEdit }: UseMessageItem
     handleCancelEdit,
     handleSaveEdit,
     handleEditKeyDown,
+    registerMessageRef,
   };
 }

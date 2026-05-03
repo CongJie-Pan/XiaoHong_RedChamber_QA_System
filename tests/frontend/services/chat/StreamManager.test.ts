@@ -33,11 +33,11 @@ describe('StreamManager', () => {
       if (messages[0].content === 'q1') {
         callbacks.onContent!('a1');
         await streamPromise1;
-        await callbacks.onDone!();
+        await callbacks.onDone!(['s1', 's2']);
       } else {
         callbacks.onContent!('a2');
         await streamPromise2;
-        await callbacks.onDone!();
+        await callbacks.onDone!([]);
       }
     });
 
@@ -60,6 +60,12 @@ describe('StreamManager', () => {
 
     expect(streamManager.isStreaming('conv1')).toBe(false);
     expect(streamManager.isStreaming('conv2')).toBe(false);
+    
+    // Verify persistence
+    expect(databaseService.message.update).toHaveBeenCalledWith('msg1', expect.objectContaining({
+      suggestions: ['s1', 's2'],
+      isStreaming: false
+    }));
     expect(databaseService.message.update).toHaveBeenCalledTimes(2);
   });
 
@@ -70,7 +76,7 @@ describe('StreamManager', () => {
       await new Promise(r => setTimeout(r, 10)); // Add delay
       callbacks.onContent!('part1');
       callbacks.onContent!('part2');
-      await callbacks.onDone!();
+      await callbacks.onDone!(['s1']);
     });
 
     // Act
@@ -83,7 +89,7 @@ describe('StreamManager', () => {
     // Assert
     expect(listener).toHaveBeenCalledWith(expect.objectContaining({ type: 'content', chunk: 'part1' }));
     expect(listener).toHaveBeenCalledWith(expect.objectContaining({ type: 'content', chunk: 'part2' }));
-    expect(listener).toHaveBeenCalledWith(expect.objectContaining({ type: 'done' }));
+    expect(listener).toHaveBeenCalledWith(expect.objectContaining({ type: 'done', suggestions: ['s1'] }));
     
     unsubscribe();
   });

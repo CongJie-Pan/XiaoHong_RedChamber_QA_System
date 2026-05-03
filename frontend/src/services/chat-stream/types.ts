@@ -170,7 +170,7 @@ export interface StreamCallbacks {
   /** Called with citation URLs */
   onCitations: (citations: string[]) => void;
   /** Called when stream completes */
-  onDone: () => void;
+  onDone: (suggestions?: string[]) => void;
   /** Called on error */
   onError: (error: Error) => void;
   /** Called when RAG pipeline status changes */

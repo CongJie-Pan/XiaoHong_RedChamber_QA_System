@@ -33,6 +33,17 @@ vi.mock('@/services/chat/mutations', () => ({
     editUserMessage: vi.fn(),
 }));
 
+// Mock Quote Context
+vi.mock('@/components/MessageList/QuoteContext', () => ({
+  QuoteProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  useQuote: () => ({
+    registerMessageRef: vi.fn(),
+    handleQuoteClick: vi.fn(),
+  }),
+}));
+
+import { QuoteProvider } from '@/components/MessageList/QuoteContext';
+
 describe('Background Streaming Integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -62,10 +73,14 @@ describe('Background Streaming Integration', () => {
     // 1. Start chat in Conv 1
     act(() => {
       useConversationStore.getState().selectConversation('conv1');
-      useChatStore.getState().setActiveConversation('conv1');
+      // Snapshot will be initialized by useConversationSwitch in ChatContainer
     });
 
-    render(<ChatContainer />);
+    render(
+      <QuoteProvider>
+        <ChatContainer />
+      </QuoteProvider>
+    );
 
     // Trigger send message
     await act(async () => {

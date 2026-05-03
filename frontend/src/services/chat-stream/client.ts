@@ -129,8 +129,13 @@ export async function createChatStream(
     // STREAM PROCESSING LOOP
     // Why: Read the incoming byte stream and reconstruct the SSE 
     // data blocks. Handles incomplete blocks and dispatches events.
+    // Use dual-layer parsing (split by \n\n then by \n) to ensure 
+    // event types and data are correctly bound together even if 
+    // split across network chunks.
     // =================================================================
     let buffer = '';
+    let suggestionsFromDone: string[] = [];
+
     while (true) {
       if (abortSignal?.aborted) {
         throw new Error('Request aborted by user');
@@ -139,37 +144,38 @@ export async function createChatStream(
       const { done, value } = await reader.read();
       if (done) break;
 
-      // Why: Decode binary chunks to UTF-8 text and maintain a buffer 
-      // for incomplete lines split by packet boundaries.
+      // Decode and buffer chunks
       buffer += decoder.decode(value, { stream: true });
-      const events = buffer.split('\n\n');
       
-      // Keep the last incomplete block
-      buffer = events.pop() ?? '';
+      // Split by double newline to get complete SSE message blocks
+      const blocks = buffer.split('\n\n');
+      
+      // Keep the last potentially incomplete block in the buffer
+      buffer = blocks.pop() ?? '';
 
-      for (const eventBlock of events) {
-        if (!eventBlock.trim()) continue;
+      for (const block of blocks) {
+        if (!block.trim()) continue;
 
-        const lines = eventBlock.split('\n');
-        
-        // Parse "event:" line if present (defaults to 'message')
-        // Why: The backend uses custom event types like 'status' and 
-        // 'sources' to provide RAG metadata alongside the message text.
-        const eventTypeLine = lines.find((l) => l.startsWith('event: '));
-        const eventType = eventTypeLine ? eventTypeLine.slice(7).trim() : 'message';
+        const lines = block.split('\n');
+        let eventType = 'message';
+        let data = '';
 
-        const dataLine = lines.find((l) => l.startsWith('data: '));
-        if (!dataLine) continue;
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            eventType = line.slice(7).trim();
+          } else if (line.startsWith('data: ')) {
+            data = line.slice(6).trim();
+          }
+        }
 
-        const data = dataLine.slice(6).trim();
+        if (!data) continue;
 
         // IF: End-of-stream signal received
-        // Why: Explicitly close the stream according to protocol.
         if (data === '[DONE]') {
           if (pendingCitations.length > 0) {
             callbacks.onCitations(pendingCitations);
           }
-          callbacks.onDone();
+          callbacks.onDone(suggestionsFromDone);
           return;
         }
 
@@ -177,27 +183,33 @@ export async function createChatStream(
           const chunk = JSON.parse(data);
 
           // IF: Event is a pipeline status update
-          // Why: Update the RAGStatusPanel with the current backend progress.
           if (eventType === 'status') {
             callbacks.onStatus?.(chunk.status, chunk.message);
             continue;
           }
 
           // IF: Event contains structured search sources
-          // Why: Display the verified literature sources used for retrieval.
           if (eventType === 'sources') {
             callbacks.onSources?.(chunk); 
             continue;
           }
 
+          // IF: Event contains suggestions (Legacy or Atomic Done)
           if (eventType === 'suggestions') {
             callbacks.onSuggestions?.(chunk);
             continue;
           }
 
+          // IF: Event is the new atomic 'done' payload
+          if (eventType === 'done') {
+            if (chunk.suggestions) {
+              suggestionsFromDone = chunk.suggestions;
+            }
+            continue;
+          }
+
           if (eventType === 'metadata') {
             // IF: Usage information is provided
-            // Why: Synchronize token usage with the global store for metrics.
             if (chunk.promptTokens !== undefined || chunk.totalTokens !== undefined) {
               useChatStore.getState().setTokenUsage({
                 promptTokens: chunk.promptTokens,
@@ -246,7 +258,7 @@ export async function createChatStream(
     if (pendingCitations.length > 0) {
       callbacks.onCitations(pendingCitations);
     }
-    callbacks.onDone();
+    callbacks.onDone(suggestionsFromDone);
   } catch (error) {
     if (isAbortError(error)) {
       console.log('[ChatStream] Request aborted by user');

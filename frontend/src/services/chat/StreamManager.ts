@@ -148,8 +148,9 @@ class StreamManager {
             session.suggestions = suggestions;
             this._notify(session, { type: 'suggestions', suggestions });
           },
-          onDone: async () => {
-            this._notify(session, { type: 'done' });
+          onDone: async (suggestions) => {
+            if (suggestions) session.suggestions = suggestions;
+            this._notify(session, { type: 'done', suggestions: session.suggestions });
             await this._finalize(session);
           },
           onError: (error) => {

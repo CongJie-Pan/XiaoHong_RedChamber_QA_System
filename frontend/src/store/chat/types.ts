@@ -119,7 +119,7 @@ export interface ChatActions {
   appendThinkingContent: (content: string, conversationId?: string) => void;
   endThinking: (conversationId?: string) => void;
   appendContent: (content: string, conversationId?: string) => void;
-  endStreaming: (conversationId?: string) => void;
+  endStreaming: (conversationId?: string, suggestions?: string[]) => void;
 
   // =================================================================
   // METADATA & UTILITY ACTIONS

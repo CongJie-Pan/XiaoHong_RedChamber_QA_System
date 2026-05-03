@@ -49,18 +49,9 @@ export function MessageList({ className, onRegenerate, onEdit, onSelectSuggestio
     const snap = state.activeConversationId ? state.conversationSnapshots[state.activeConversationId] : null;
     return snap?.currentStreamingId || null;
   });
-  const thinkingContent = useChatStore((state) => {
-    const snap = state.activeConversationId ? state.conversationSnapshots[state.activeConversationId] : null;
-    return snap?.thinkingContent || '';
-  });
-  const isThinking = useChatStore((state) => {
-    const snap = state.activeConversationId ? state.conversationSnapshots[state.activeConversationId] : null;
-    return snap?.isThinking || false;
-  });
-  const thinkingStartTime = useChatStore((state) => {
-    const snap = state.activeConversationId ? state.conversationSnapshots[state.activeConversationId] : null;
-    return snap?.thinkingStartTime || null;
-  });
+  const thinkingContent = useChatStore(chatSelectors.thinkingContent);
+  const isThinking = useChatStore(chatSelectors.isThinking);
+  const thinkingStartTime = useChatStore(chatSelectors.thinkingStartTime);
 
   // RAG States
   const ragStatus = useChatStore((state) => {
@@ -224,6 +215,7 @@ export function MessageList({ className, onRegenerate, onEdit, onSelectSuggestio
                   ? {
                       content: thinkingContent,
                       isThinking,
+                      startTime: thinkingStartTime,
                     }
                   : undefined
               }

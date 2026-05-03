@@ -395,7 +395,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     });
   },
 
-  endStreaming: (conversationId) => {
+  endStreaming: (conversationId, suggestions) => {
     const targetId = conversationId ?? get().activeConversationId;
     if (!targetId) return;
 
@@ -410,6 +410,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             ? {
                 ...msg,
                 content: snapshot.currentContent,
+                suggestions: suggestions && suggestions.length > 0 
+                  ? suggestions 
+                  : (msg.suggestions || []),
                 citations:
                   snapshot.currentCitations.length > 0
                     ? snapshot.currentCitations

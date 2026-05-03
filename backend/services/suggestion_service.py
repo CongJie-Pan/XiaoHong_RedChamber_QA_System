@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import re
 from typing import List, Dict, Any, Optional
 from openai import AsyncOpenAI
 
@@ -55,6 +56,36 @@ class SuggestionService:
             )
         self.model = "qwen/qwen2.5-7b-instruct"
 
+    def _extract_json_array(self, text: str) -> List[str]:
+        """
+        Robustly extract JSON array from LLM output.
+        Handles Markdown blocks, preamble, and minor syntax errors.
+        """
+        # 1. Try to strip Markdown code blocks
+        code_block = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', text, re.DOTALL)
+        if code_block:
+            text = code_block.group(1)
+        else:
+            # Fallback: find the first { and last }
+            start = text.find('{')
+            end = text.rfind('}')
+            if start != -1 and end != -1:
+                text = text[start : end + 1]
+
+        try:
+            result = json.loads(text)
+            if isinstance(result, dict) and "suggestions" in result:
+                return result["suggestions"]
+            elif isinstance(result, list):
+                return result
+        except json.JSONDecodeError:
+            # Last ditch effort: regex for string literals in an array
+            suggestions = re.findall(r'"([^"]{5,35})"', text)
+            if suggestions:
+                return suggestions
+
+        return []
+
     async def generate_suggestions(
         self,
         user_query: str,
@@ -93,19 +124,20 @@ class SuggestionService:
                     {"role": "user", "content": user_content},
                 ],
                 response_format={"type": "json_object"},
-                max_tokens=200,
+                max_tokens=300,
                 temperature=0.7
             )
             
             result_str = response.choices[0].message.content
-            result = json.loads(result_str)
-            suggestions = result.get("suggestions", [])
+            suggestions = self._extract_json_array(result_str)
             
             # Post-processing: diversity and length filter
             valid_suggestions = []
             for s in suggestions:
                 s = s.strip()
-                if 5 <= len(s) <= 35: # Slightly more relaxed than 25 for safety
+                # Filter out numbers at start like "1. ..."
+                s = re.sub(r'^\d+\.\s*', '', s)
+                if 5 <= len(s) <= 40: 
                     valid_suggestions.append(s)
             
             return valid_suggestions[:3]
@@ -113,3 +145,4 @@ class SuggestionService:
         except Exception as e:
             logger.error(f"SuggestionService error: {e}")
             return []
+
