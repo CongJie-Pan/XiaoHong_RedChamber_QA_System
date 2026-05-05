@@ -237,8 +237,14 @@ export async function sendMessage(
           chatStore.updateAssistantMessage(assistantMessageId, { suggestions });
         },
 
-        onDone: async () => {
+        onDone: async (suggestions?: string[]) => {
           chatStore.endStreaming();
+
+          // Update message with final suggestions if received in done event
+          if (suggestions && suggestions.length > 0) {
+            suggestionsList = suggestions;
+            chatStore.updateAssistantMessage(assistantMessageId, { suggestions });
+          }
 
           // Calculate thinking duration
           const thinkingDuration = thinkingStartTime
@@ -598,8 +604,14 @@ export async function regenerateMessage(messageId: string): Promise<void> {
           chatStore.updateAssistantMessage(assistantMessageId, { suggestions });
         },
 
-        onDone: async () => {
+        onDone: async (suggestions?: string[]) => {
           chatStore.endStreaming();
+
+          // Update message with final suggestions if received in done event
+          if (suggestions && suggestions.length > 0) {
+            suggestionsList = suggestions;
+            chatStore.updateAssistantMessage(assistantMessageId, { suggestions });
+          }
 
           // Calculate thinking duration
           const thinkingDuration = thinkingStartTime
@@ -804,8 +816,14 @@ export async function editUserMessage(
           chatStore.updateAssistantMessage(assistantMessageId, { suggestions });
         },
 
-        onDone: async () => {
+        onDone: async (suggestions?: string[]) => {
           chatStore.endStreaming();
+
+          // Update message with final suggestions if received in done event
+          if (suggestions && suggestions.length > 0) {
+            suggestionsList = suggestions;
+            chatStore.updateAssistantMessage(assistantMessageId, { suggestions });
+          }
 
           // Calculate thinking duration
           const thinkingDuration = thinkingStartTime

@@ -528,8 +528,11 @@ async def stream_endpoint(request: Request, chat_req: ChatRequest):
                             
                             if suggestions:
                                 yield f"event: suggestions\ndata: {json.dumps(suggestions, ensure_ascii=False)}\n\n"
+                            # Bundle in event: done for Store synchronization
+                            yield f"event: done\ndata: {json.dumps({'suggestions': suggestions or []}, ensure_ascii=False)}\n\n"
                         except Exception as sug_err:
                             print(f"Failed to generate suggestions: {sug_err}")
+                            yield f"event: done\ndata: {json.dumps({'suggestions': []}, ensure_ascii=False)}\n\n"
                         
                 except Exception as e:
                     reason = str(e)

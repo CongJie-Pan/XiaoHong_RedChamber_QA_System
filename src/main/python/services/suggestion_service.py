@@ -53,7 +53,7 @@ class SuggestionService:
                 base_url="https://openrouter.ai/api/v1",
                 timeout=10.0
             )
-        self.model = "qwen/qwen2.5-7b-instruct"
+        self.model = "qwen/qwen-2.5-7b-instruct"
 
     async def generate_suggestions(
         self,

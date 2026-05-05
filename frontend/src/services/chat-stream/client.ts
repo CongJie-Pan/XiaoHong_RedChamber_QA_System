@@ -131,8 +131,13 @@ export async function createChatStream(
 
     const decoder = new TextDecoder();
     let pendingCitations: string[] = [];
+    let suggestionsFromDone: string[] = [];
 
-    // Read and process the stream using \n\n blocks
+    // =================================================================
+    // STREAM PROCESSING LOOP
+    // Why: Read the incoming byte stream and reconstruct the SSE 
+    // data blocks. Handles incomplete blocks and dispatches events.
+    // =================================================================
     let buffer = '';
     while (true) {
       if (abortSignal?.aborted) {
@@ -142,16 +147,22 @@ export async function createChatStream(
       const { done, value } = await reader.read();
       if (done) break;
 
+      // Why: Decode binary chunks to UTF-8 text and maintain a buffer 
+      // for incomplete lines split by packet boundaries.
       buffer += decoder.decode(value, { stream: true });
       const events = buffer.split('\n\n');
       
-      // Keep the last incomplete block
+      // Keep the last partial block in the buffer
       buffer = events.pop() ?? '';
 
       for (const eventBlock of events) {
         if (!eventBlock.trim()) continue;
 
         const lines = eventBlock.split('\n');
+        
+        // Parse "event:" line if present (defaults to 'message')
+        // Why: The backend uses custom event types like 'status' and 
+        // 'sources' to provide RAG metadata alongside the message text.
         const eventTypeLine = lines.find((l) => l.startsWith('event: '));
         const eventType = eventTypeLine ? eventTypeLine.slice(7).trim() : 'message';
 
@@ -160,22 +171,28 @@ export async function createChatStream(
 
         const data = dataLine.slice(6).trim();
 
+        // IF: End-of-stream signal received
+        // Why: Explicitly close the stream according to protocol.
         if (data === '[DONE]') {
           if (pendingCitations.length > 0) {
             callbacks.onCitations(pendingCitations);
           }
-          callbacks.onDone();
+          callbacks.onDone(suggestionsFromDone);
           return;
         }
 
         try {
           const chunk = JSON.parse(data);
 
+          // IF: Event is a pipeline status update
+          // Why: Update the RAGStatusPanel with the current backend progress.
           if (eventType === 'status') {
             callbacks.onStatus?.(chunk.status, chunk.message);
             continue;
           }
 
+          // IF: Event contains structured search sources
+          // Why: Display the verified literature sources used for retrieval.
           if (eventType === 'sources') {
             callbacks.onSources?.(chunk); // chunk is an array of source objects
             continue;
@@ -183,6 +200,13 @@ export async function createChatStream(
 
           if (eventType === 'suggestions') {
             callbacks.onSuggestions?.(chunk); // chunk is an array of strings
+            continue;
+          }
+
+          if (eventType === 'done') {
+            if (chunk.suggestions) {
+              suggestionsFromDone = chunk.suggestions;
+            }
             continue;
           }
 
