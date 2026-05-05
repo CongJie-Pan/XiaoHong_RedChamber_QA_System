@@ -40,14 +40,23 @@ function isSafeUrl(url: string | undefined): boolean {
 /**
  * Custom ReactMarkdown components for XSS protection and custom styling
  */
-const createMarkdownComponents = (styles: any, cx: any, onQuoteClick: (text: string) => void): Components => ({
+type Styles = Record<string, string>;
+type Cx = (...classNames: Array<string | false | null | undefined>) => string;
+
+const createMarkdownComponents = (
+  styles: Styles,
+  cx: Cx,
+  onQuoteClick: (text: string) => void
+): Components => ({
   // Custom blockquote for citations
   blockquote: ({ children }) => {
     // Extract text content from children to find it in the DOM
-    const extractText = (node: any): string => {
+    const extractText = (node: React.ReactNode): string => {
       if (typeof node === 'string') return node;
       if (Array.isArray(node)) return node.map(extractText).join('');
-      if (node?.props?.children) return extractText(node.props.children);
+      if (React.isValidElement(node)) {
+        return extractText(node.props.children);
+      }
       return '';
     };
     const textContent = extractText(children).trim();
@@ -143,18 +152,21 @@ export const MessageItem = memo(function MessageItem({
   const { styles, cx } = useStyles();
   const { message: antMessageApi } = App.useApp();
   const isUser = message.role === 'user';
-  const bubbleRef = React.useRef<HTMLDivElement>(null);
+  const [bubbleEl, setBubbleEl] = useState<HTMLDivElement | null>(null);
+  const setBubbleRef = useCallback((node: HTMLDivElement | null) => {
+    setBubbleEl(node);
+  }, []);
 
   // Handle clicking on a quote bubble to highlight text in the original message
   const handleQuoteClick = useCallback((quoteText: string) => {
-    if (!bubbleRef.current || !quoteText) return;
+    if (!bubbleEl || !quoteText) return;
 
     // Clear any existing selection first
     const selection = window.getSelection();
     if (selection) selection.removeAllRanges();
 
     // 1. First attempt: Use DOM TreeWalker (precise but sensitive to node splitting)
-    const walk = document.createTreeWalker(bubbleRef.current, NodeFilter.SHOW_TEXT, null);
+    const walk = document.createTreeWalker(bubbleEl, NodeFilter.SHOW_TEXT, null);
     let node;
     let found = false;
     
@@ -201,7 +213,7 @@ export const MessageItem = memo(function MessageItem({
   }, []);
 
   const markdownComponents = React.useMemo(
-    () => createMarkdownComponents(styles, cx, handleQuoteClick), 
+    () => createMarkdownComponents(styles, cx, handleQuoteClick),
     [styles, cx, handleQuoteClick]
   );
 
@@ -389,7 +401,7 @@ export const MessageItem = memo(function MessageItem({
           <div className={cx(styles.bubbleWrapper, 'bubbleWrapper')}>
             {/* Message Bubble */}
             <div 
-              ref={bubbleRef}
+              ref={setBubbleRef}
               className={cx(styles.bubble, styles.assistantBubble)}
               data-role="assistant-bubble"
             >

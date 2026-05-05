@@ -10,7 +10,7 @@ import { Menu, X, AlertCircle } from 'lucide-react';
 import { App } from 'antd';
 import { useChatStore, chatSelectors } from '@/store/chat';
 import { useConversationStore, conversationSelectors } from '@/store/conversation';
-import { sendMessage, loadMessages, initializeChatService, cancelCurrentStream, regenerateMessage, editUserMessage } from '@/services/chat';
+import { sendMessage, initializeChatService, cancelCurrentStream, regenerateMessage, editUserMessage } from '@/services/chat';
 import { ConversationList } from '@/components/ConversationList';
 import { MessageList } from '@/components/MessageList';
 import { ChatInput } from '@/components/ChatInput';
@@ -97,6 +97,7 @@ export function ChatContainer({ className }: ChatContainerProps) {
       useChatStore.getState().clearMessages();
       useChatStore.getState().resetStreamingState();
     }
+    useChatStore.getState().setQuotedText(null);
     // Note: We don't call loadMessages(activeConversationId) here because
     // it's already handled by switchConversation() and sendMessage()
     // calls. Calling it here causes a race condition that clears
@@ -269,6 +270,7 @@ export function ChatContainer({ className }: ChatContainerProps) {
           {/* Chat Input */}
           <div className={styles.inputArea}>
             <ChatInput
+              key={activeConversationId ?? 'new'}
               onSend={handleSend}
               disabled={isStreaming}
               placeholder={

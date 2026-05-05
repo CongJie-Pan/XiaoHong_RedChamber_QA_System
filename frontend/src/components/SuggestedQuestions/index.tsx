@@ -68,7 +68,7 @@ export const SuggestedQuestions: React.FC<SuggestedQuestionsProps> = ({
         <MessageSquarePlus size={14} />
         <Text type="secondary">您可能還想了解：</Text>
       </div>
-      <Space direction="vertical" style={{ width: '100%' }} size="small">
+      <Space orientation="vertical" style={{ width: '100%' }} size="small">
         {suggestions.map((question, index) => (
           <Button
             key={index}

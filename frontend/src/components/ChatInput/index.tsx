@@ -6,10 +6,9 @@
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Send, Square, Brain, Database, Quote, X, CornerDownRight } from 'lucide-react';
+import { Send, Square, Brain, Database, X, CornerDownRight } from 'lucide-react';
 import { message, Tooltip } from 'antd';
 import { useChatStore } from '@/store/chat';
-import { useConversationStore } from '@/store/conversation';
 import { useStyles } from './styles';
 
 /** Maximum allowed message length */
@@ -51,8 +50,6 @@ export function ChatInput({
   const [value, setValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
-  const activeConversationId = useConversationStore((state) => state.activeConversationId);
-
   // Connect to global state for mode togglers
   const useRag = useChatStore((state) => state.useRag);
   const forceThink = useChatStore((state) => state.forceThink);
@@ -88,12 +85,6 @@ export function ChatInput({
       textareaRef.current.focus();
     }
   }, [disabled]);
-
-  // Clear input when conversation changes
-  useEffect(() => {
-    setValue('');
-    setQuotedText(null);
-  }, [activeConversationId, setQuotedText]);
 
   const handleSend = useCallback(() => {
     const trimmedValue = value.trim();

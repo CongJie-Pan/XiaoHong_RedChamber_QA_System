@@ -188,7 +188,6 @@ quoteBlock: css`
   max-width: 100%;
   transition: all 0.2s ease;
   font-style: italic;
-  align-self: flex-start;
 
   &.interactive-quote:hover {
     opacity: 0.8;
