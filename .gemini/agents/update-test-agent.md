@@ -42,6 +42,9 @@ A developer has just fixed a bug in the codebase. Your job is to analyze the rec
 - Confirm that the entire test suite, including your newly added test, passes. 
 - If the test fails, debug the test code, refine it, and run it again until it passes.
 
+### Step  : run `npm run check:report:strict` to ensure ESLint and TypeScript Check.
+If run `TypeScript Check` , please fix it.
+
 # Output Format
 When presenting the final result to the user:
 1. **Summary of the Gap:** Briefly explain what test coverage was missing.

@@ -42,6 +42,17 @@ function isSafeUrl(url: string | undefined): boolean {
  */
 type Styles = Record<string, string>;
 type Cx = (...classNames: Array<string | false | null | undefined>) => string;
+type WindowWithFind = Window & {
+  find?: (
+    searchString: string,
+    caseSensitive?: boolean,
+    backwards?: boolean,
+    wrapAround?: boolean,
+    wholeWord?: boolean,
+    searchInFrames?: boolean,
+    showDialog?: boolean
+  ) => boolean;
+};
 
 const createMarkdownComponents = (
   styles: Styles,
@@ -54,7 +65,7 @@ const createMarkdownComponents = (
     const extractText = (node: React.ReactNode): string => {
       if (typeof node === 'string') return node;
       if (Array.isArray(node)) return node.map(extractText).join('');
-      if (React.isValidElement(node)) {
+      if (React.isValidElement<{ children?: React.ReactNode }>(node)) {
         return extractText(node.props.children);
       }
       return '';
@@ -167,7 +178,7 @@ export const MessageItem = memo(function MessageItem({
 
     // 1. First attempt: Use DOM TreeWalker (precise but sensitive to node splitting)
     const walk = document.createTreeWalker(bubbleEl, NodeFilter.SHOW_TEXT, null);
-    let node;
+    let node: Node | null;
     let found = false;
     
     while ((node = walk.nextNode())) {
@@ -198,9 +209,10 @@ export const MessageItem = memo(function MessageItem({
 
     // 2. Second attempt: window.find (if supported and first attempt failed)
     // This is more robust for text split across multiple inline elements (like strong, em, code)
-    if (!found && typeof (window as any).find === 'function') {
+    const windowWithFind = window as WindowWithFind;
+    if (!found && typeof windowWithFind.find === 'function') {
       // Note: window.find is non-standard but widely supported in browsers for this specific use case
-      const res = (window as any).find(quoteText, false, false, true, false, true, false);
+      const res = windowWithFind.find(quoteText, false, false, true, false, true, false);
       if (res) found = true;
     }
 
@@ -210,7 +222,7 @@ export const MessageItem = memo(function MessageItem({
         window.getSelection()?.removeAllRanges();
       }, 6000);
     }
-  }, []);
+  }, [bubbleEl]);
 
   const markdownComponents = React.useMemo(
     () => createMarkdownComponents(styles, cx, handleQuoteClick),

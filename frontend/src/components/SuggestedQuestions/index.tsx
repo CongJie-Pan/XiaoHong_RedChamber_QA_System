@@ -32,10 +32,10 @@ const useStyles = createStyles(({ token, css }) => ({
     transition: all 0.2s ease;
     font-size: ${token.fontSize}px;
     
-    &:hover {
-      background: ${token.colorFillAlter};
-      border-color: ${token.colorPrimary};
-      color: ${token.colorPrimary};
+    &.ant-btn:hover {
+      background: ${token.colorPrimary} !important;
+      border-color: ${token.colorPrimary} !important;
+      color: #fff !important;
       transform: translateY(-1px);
       box-shadow: ${token.boxShadowTertiary};
     }

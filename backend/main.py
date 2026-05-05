@@ -43,26 +43,27 @@ _resolved_model_name = None
 # --- System Prompts (Extracted from Streamlit chat_app.py) ---
 SYSTEM_PROMPT_NORMAL = (
     "你是一位專業的古典文學與知識問答助手。你的名字叫做「小紅」。請始終使用繁體中文回答。"
-    "遇到需要深度分析與邏輯推演的問題，請先在 <think> 標籤內進行思考；"
-    "若是簡單的事實擷取或問候，請直接給出答案，不需思考過程。"
+    "回答以段落文字為主，列點為輔。"
 )
 SYSTEM_PROMPT_FORCE_THINK = (
-    "你是一位專業的古典文學與知識問答助手。請先在 <think> 標籤中進行詳細推理，再給出最終答案。"
+    "你是一位專業的古典文學與知識問答助手。請始終使用繁體中文回答，"
+    "遇到需要深度分析與邏輯推演的問題，請先在 <think> 標籤內進行思考，再給出最終答案。"
+    "思考之後的正式回答請以段落文字為主，列點為輔。"
 )
 SYSTEM_PROMPT_WITH_RAG = (
     "你是一位專業的古典文學與知識問答助手。你的名字叫做「小紅」。請始終使用繁體中文回答。"
     "系統會在使用者問題前提供 <context> 參考資料。"
     "請優先根據參考資料回答；若參考資料與問題無關，請忽略它並依據自身知識回答，"
     "並說明這是根據自身知識而非參考資料。"
-    "遇到需要深度分析與邏輯推演的問題，請先在 <think> 標籤內進行思考；"
-    "若是簡單的事實擷取或問候，請直接給出答案，不需思考過程。"
+    "正式回答以段落文字為主，列點為輔。"
 )
 SYSTEM_PROMPT_WITH_RAG_THINK = (
     "你是一位專業的古典文學與知識問答助手。你的名字叫做「小紅」。請始終使用繁體中文回答。"
     "系統會在使用者針對問題前提供 <context> 參考資料。"
     "請優先根據參考資料回答；若參考資料與問題無關，請忽略它並依據自身知識回答，"
     "並說明這是根據自身知識而非參考資料。"
-    "請先在 <think> 標籤中進行詳細推理，再給出最終答案。"
+    "遇到需要深度分析與邏輯推演的問題，請先在 <think> 標籤內進行思考，再給出最終答案。"
+    "思考之後的正式回答，請以段落文字為主，列點為輔。"
 )
 
 # Initialize the global thread pool for CPU bounds tasks (Tokenizer, FAISS, BM25)
@@ -144,7 +145,7 @@ class ChatRequest(BaseModel):
     temperature: float = 0.0
     top_p: float = 0.9
     max_tokens: int = 2048
-    repetition_penalty: float = 1.15
+    repetition_penalty: float = 1.1
 
 class TitleRequest(BaseModel):
     messages: List[Dict[str, str]]
@@ -457,6 +458,11 @@ async def stream_endpoint(request: Request, chat_req: ChatRequest):
                     # 2. Use completions API (not chat) to maintain absolute control over the payload
                     # This prevents vLLM from stripping <think> tags natively
                     
+                    # Apply dynamic max_tokens based on RAG mode
+                    effective_max_tokens = chat_req.max_tokens
+                    if chat_req.use_rag and chat_req.max_tokens == 2048:
+                        effective_max_tokens = 2500
+
                     # Dynamically resolve model name identically to chat_app.py resolve_model_name()
                     try:
                         # Since `models.list()` throws an error on some instances or behaves weirdly, 
@@ -473,7 +479,7 @@ async def stream_endpoint(request: Request, chat_req: ChatRequest):
                         model=target_model_name,
                         prompt=prompt,
                         stream=True,
-                        max_tokens=chat_req.max_tokens,
+                        max_tokens=effective_max_tokens,
                         temperature=chat_req.temperature if chat_req.temperature > 0 else 0.001,
                         top_p=chat_req.top_p,
                         extra_body={
