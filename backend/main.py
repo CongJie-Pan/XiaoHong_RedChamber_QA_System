@@ -143,6 +143,19 @@ class RetrieveRequest(BaseModel):
     query: str
     top_k: int = 5
 
+
+class ChatRequest(BaseModel):
+    messages: List[Dict[str, str]]
+    use_rag: bool = False
+    force_think: bool = False
+    temperature: float = 0.7
+    top_p: float = 0.8
+    max_tokens: int = 2048
+    repetition_penalty: float = 1.2
+    presence_penalty: float = 1.5
+    no_repeat_ngram_size: int = 3
+
+""""
 class ChatRequest(BaseModel):
     messages: List[Dict[str, str]]
     use_rag: bool = False
@@ -151,6 +164,7 @@ class ChatRequest(BaseModel):
     top_p: float = 0.9
     max_tokens: int = 2048
     repetition_penalty: float = 1.1
+""""
 
 class TitleRequest(BaseModel):
     messages: List[Dict[str, str]]

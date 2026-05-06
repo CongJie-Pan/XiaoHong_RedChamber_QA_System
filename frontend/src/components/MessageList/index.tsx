@@ -13,7 +13,7 @@ import { MessageItem } from './MessageItem';
 import { useStyles } from './styles';
 
 /** Scroll threshold in pixels from bottom to trigger auto-scroll */
-const SCROLL_THRESHOLD = 100;
+const SCROLL_THRESHOLD = 30;
 
 export interface MessageListProps {
   /** Class name for styling */
@@ -47,18 +47,17 @@ export function MessageList({ className, onRegenerate, onEdit, onSelectSuggestio
   const ragMessage = useChatStore((state) => state.ragMessage);
   const ragSources = useChatStore((state) => state.ragSources);
 
-
-
   // Handle user scroll - track if user manually scrolled up
   const handleScroll = useCallback(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    const isNearBottom =
-      container.scrollHeight - container.scrollTop - container.clientHeight < SCROLL_THRESHOLD;
+    // Detect if we are at the bottom with a small buffer
+    const isAtBottom = 
+      container.scrollHeight - container.scrollTop - container.clientHeight < 10;
 
-    if (isNearBottom) {
-      // User scrolled back to bottom - resume auto-scroll
+    if (isAtBottom) {
+      // User is at bottom - allow auto-scroll
       userScrolledUpRef.current = false;
       setShowScrollButton(false);
     } else {
@@ -82,13 +81,12 @@ export function MessageList({ className, onRegenerate, onEdit, onSelectSuggestio
     if (isStreaming) {
       const container = containerRef.current;
       if (container) {
-        const isNearBottom =
+        // Use a stricter check when streaming starts to decide if we should follow
+        const isAtBottom =
           container.scrollHeight - container.scrollTop - container.clientHeight < SCROLL_THRESHOLD;
         
-        if (isNearBottom) {
+        if (isAtBottom) {
           userScrolledUpRef.current = false;
-          // Defer state update to avoid cascading render warning in React 19 / ESLint
-          // when calling setState synchronously within an effect that measures DOM
           setTimeout(() => setShowScrollButton(false), 0);
         }
       }
@@ -101,30 +99,19 @@ export function MessageList({ className, onRegenerate, onEdit, onSelectSuggestio
       const container = containerRef.current;
 
       requestAnimationFrame(() => {
-        const isScrolledToBottom =
-          container.scrollHeight - container.scrollTop - container.clientHeight < SCROLL_THRESHOLD;
+        const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+        const isNearBottom = distanceToBottom < SCROLL_THRESHOLD;
 
-        // Auto-scroll conditions:
-        // 1. User hasn't manually scrolled up
-        // 2. OR User is already near bottom (resume auto-scroll)
-        const shouldAutoScroll = !userScrolledUpRef.current || isScrolledToBottom;
+        // Auto-scroll logic:
+        // 1. If we are already near the bottom, always follow the new content
+        // 2. If user hasn't manually scrolled up (userScrolledUpRef is false), follow content
+        const shouldAutoScroll = isNearBottom || !userScrolledUpRef.current;
 
-        if (shouldAutoScroll && (isStreaming || !userScrolledUpRef.current)) {
-          // Special handling for the start of a conversation to ensure the 
-          // user message remains visible when an empty assistant message 
-          // or RAG status panel appears.
-          const messageElements = container.querySelectorAll('[data-message-id]');
-          const isFirstTurn = messages.length <= 2;
-          
-          if (isFirstTurn && isStreaming && messageElements.length > 0) {
-            // Scroll to the first message (the user message) to ensure it's visible
-            messageElements[0].scrollIntoView({ block: 'start', behavior: 'smooth' });
-          } else {
-            container.scrollTo({
-              top: container.scrollHeight,
-              behavior: isStreaming ? 'auto' : 'smooth',
-            });
-          }
+        if (shouldAutoScroll) {
+          container.scrollTo({
+            top: container.scrollHeight,
+            behavior: isStreaming ? 'auto' : 'smooth',
+          });
         }
       });
     }
