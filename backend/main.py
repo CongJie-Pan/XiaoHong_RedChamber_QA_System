@@ -155,17 +155,6 @@ class ChatRequest(BaseModel):
     presence_penalty: float = 1.5
     no_repeat_ngram_size: int = 3
 
-""""
-class ChatRequest(BaseModel):
-    messages: List[Dict[str, str]]
-    use_rag: bool = False
-    force_think: bool = False
-    temperature: float = 0.0
-    top_p: float = 0.9
-    max_tokens: int = 2048
-    repetition_penalty: float = 1.1
-""""
-
 class TitleRequest(BaseModel):
     messages: List[Dict[str, str]]
 
