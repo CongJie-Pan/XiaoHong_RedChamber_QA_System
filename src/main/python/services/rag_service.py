@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from typing import List, Optional, Dict, Any
 
 import numpy as np
+import opencc
 
 logger = logging.getLogger(__name__)
 
@@ -246,6 +247,9 @@ class RAGService:
         
         self.use_reranker = use_reranker
         self.use_hyde = use_hyde
+        
+        # s2twp: Simplified Chinese to Traditional Chinese (Taiwan Standard)
+        self.converter = opencc.OpenCC('s2twp')
 
         self.top_k = top_k
         self.rrf_k = rrf_k
@@ -819,6 +823,8 @@ class RAGService:
                 data = response.json()
                 expanded_text = data["choices"][0]["message"]["content"].strip()
                 if expanded_text:
+                    # Apply OpenCC conversion as a failsafe
+                    expanded_text = self.converter.convert(expanded_text)
                     logger.info("HyDE Expansion successful.")
                     return f"{query}\n[擴寫特徵]: {expanded_text}"
         except Exception as e:

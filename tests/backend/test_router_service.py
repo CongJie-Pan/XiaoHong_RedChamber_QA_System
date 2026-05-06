@@ -79,3 +79,24 @@ async def test_router_service_reasoning_content():
         assert result["action"] == "DENY"
         assert result["domain"] == "數學"
         assert result["refusal_message"] == "拒絕數學問題"
+
+@pytest.mark.asyncio
+async def test_router_language_conversion():
+    # Test that Simplified Chinese refusal message is converted to Traditional Chinese
+    with patch('src.main.python.services.router_service.AsyncOpenAI') as mock_openai:
+        mock_client = mock_openai.return_value
+        mock_client.chat.completions.create = AsyncMock()
+        
+        # Simplified Chinese refusal
+        sc_refusal = "这是数学领域的问题呢，小红只熟悉《红楼梦》与国学知识。"
+        mock_response = AsyncMock()
+        mock_response.choices = [
+            AsyncMock(message=AsyncMock(content=f'{{"action": "DENY", "domain": "数学", "refusal_message": "{sc_refusal}"}}'))
+        ]
+        mock_client.chat.completions.create.return_value = mock_response
+        
+        service = RouterService(api_key="test_key")
+        result = await service.check_query_intent("解方程")
+        
+        # Expected Traditional Chinese
+        assert "這是數學領域的問題呢，小紅只熟悉《紅樓夢》與國學知識。" in result["refusal_message"]

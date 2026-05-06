@@ -8,6 +8,7 @@ from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from openai import AsyncOpenAI
+import opencc
 import os
 from dotenv import load_dotenv
 
@@ -37,34 +38,38 @@ HF_TOKEN = os.environ.get("HF_TOKEN", "")
 HF_ENDPOINT_URL = os.environ.get("HF_ENDPOINT_URL", "")
 HF_REPO_ID = os.environ.get("HF_REPO_ID", "/repository")
 
+# Initialize global OpenCC converter (Simplified to Traditional Taiwan variant)
+_converter = opencc.OpenCC('s2twp')
+
 # Cache to store the dynamically resolved model name so we don't spam models.list() APIs
 _resolved_model_name = None
 
 # --- System Prompts (Extracted from Streamlit chat_app.py) ---
 SYSTEM_PROMPT_NORMAL = (
     "你是一位專業的古典文學與知識問答助手。你的名字叫做「小紅」。請始終使用繁體中文回答。"
-    "回答以段落文字為主，列點為輔。"
+    "絕對禁止使用簡體中文。回答以段落文字為主，列點為輔。"
 )
 SYSTEM_PROMPT_FORCE_THINK = (
-    "你是一位專業的古典文學與知識問答助手。請始終使用繁體中文回答，"
+    "你是一位專業的古典文學與知識問答助手。請始終使用繁體中文回答，絕對禁止使用簡體中文。"
     "遇到需要深度分析與邏輯推演的問題，請先在 <think> 標籤內進行思考，再給出最終答案。"
     "思考之後的正式回答請以段落文字為主，列點為輔。"
 )
 SYSTEM_PROMPT_WITH_RAG = (
     "你是一位專業的古典文學與知識問答助手。你的名字叫做「小紅」。請始終使用繁體中文回答。"
-    "系統會在使用者問題前提供 <context> 參考資料。"
+    "絕對禁止使用簡體中文。系統會在使用者問題前提供 <context> 參考資料。"
     "請優先根據參考資料回答；若參考資料與問題無關，請忽略它並依據自身知識回答，"
     "並說明這是根據自身知識而非參考資料。"
     "正式回答以段落文字為主，列點為輔。"
 )
 SYSTEM_PROMPT_WITH_RAG_THINK = (
     "你是一位專業的古典文學與知識問答助手。你的名字叫做「小紅」。請始終使用繁體中文回答。"
-    "系統會在使用者針對問題前提供 <context> 參考資料。"
+    "絕對禁止使用簡體中文。系統會在使用者針對問題前提供 <context> 參考資料。"
     "請優先根據參考資料回答；若參考資料與問題無關，請忽略它並依據自身知識回答，"
     "並說明這是根據自身知識而非參考資料。"
     "遇到需要深度分析與邏輯推演的問題，請先在 <think> 標籤內進行思考，再給出最終答案。"
     "思考之後的正式回答，請以段落文字為主，列點為輔。"
 )
+
 
 # Initialize the global thread pool for CPU bounds tasks (Tokenizer, FAISS, BM25)
 _thread_pool = ThreadPoolExecutor(max_workers=4)
@@ -199,7 +204,9 @@ async def generate_title_endpoint(request: Request, title_req: TitleRequest):
 
                 content = chunk.choices[0].delta.content
                 if content:
-                    yield f"data: {json.dumps({'content': content}, ensure_ascii=False)}\n\n"
+                    # Apply OpenCC conversion as a failsafe
+                    converted_content = _converter.convert(content)
+                    yield f"data: {json.dumps({'content': converted_content}, ensure_ascii=False)}\n\n"
 
         except Exception as e:
             print(f"Title generation error: {e}")
@@ -218,19 +225,40 @@ async def generate_title_endpoint(request: Request, title_req: TitleRequest):
     )
 
 @app.get("/api/v1/retrieve")
-async def retrieve_endpoint(query: str, top_k: int = 5, offset: int = 0, limit: int = 10):
+async def retrieve_endpoint(query: str, top_k: int = 20, offset: int = 0, limit: int = 10):
     """
     Search endpoint that returns pure JSON snippets.
     Suitable for frontend debug panels or citation references.
     Includes pagination support (offset/limit).
     """
+    if not rag_service:
+        return {"results": [], "error": "RAG service not initialized"}
+        
     loop = asyncio.get_running_loop()
-    # TODO: In future iterations, replace this with actual faiss_utils retrieval logic in the thread pool.
-
-    mock_results = [{"text": "dummy content from dense search", "score": 0.99}]
-    # Apply mock pagination
-    paginated_results = mock_results[offset : offset + limit]
-    return {"results": paginated_results}
+    # Execute retrieval in the thread pool
+    try:
+        results = await loop.run_in_executor(_thread_pool, rag_service.retrieve, query)
+        # Convert RetrievalResult objects to dicts
+        dict_results = [
+            {
+                "text": r.text,
+                "score": float(r.score),
+                "source": r.source,
+                "chunk_id": r.chunk_id
+            } for r in results
+        ]
+        
+        # Apply pagination
+        paginated_results = dict_results[offset : offset + limit]
+        return {
+            "results": paginated_results,
+            "total": len(dict_results),
+            "offset": offset,
+            "limit": limit
+        }
+    except Exception as e:
+        print(f"Retrieve endpoint error: {e}")
+        return {"results": [], "error": str(e)}
 
 @app.post("/api/v1/stream")
 async def stream_endpoint(request: Request, chat_req: ChatRequest):

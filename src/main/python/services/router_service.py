@@ -2,6 +2,7 @@ import os
 import json
 import logging
 from typing import Dict, Any, Optional
+import opencc
 from openai import AsyncOpenAI
 
 logger = logging.getLogger(__name__)
@@ -49,6 +50,8 @@ class RouterService:
                 timeout=10.0
             )
         self.model = "Qwen/Qwen3.5-0.8B"
+        # s2twp: Simplified Chinese to Traditional Chinese (Taiwan Standard)
+        self.converter = opencc.OpenCC('s2twp')
 
     async def check_query_intent(self, query: str) -> Dict[str, Any]:
         """
@@ -101,6 +104,10 @@ class RouterService:
 
             result = json.loads(result_str)
             print(f"DEBUG: RouterService result parsed: {result.get('action')}")
+            
+            # Post-processing: Traditional Chinese enforcement for refusal message
+            if result.get("refusal_message"):
+                result["refusal_message"] = self.converter.convert(result["refusal_message"])
             
             # Basic validation of the expected keys
             if "action" not in result:

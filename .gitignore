@@ -58,6 +58,9 @@ frontend/node_modules
 /node_modules
 /temp
 /docs/worklog
+/docs/miscellaneous
+/PLANNING.md
+/TASK.md
 
 
 # Python
