@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Button, Tooltip, message } from 'antd';
+import { App, Button, Tooltip } from 'antd';
 import { ChevronRight, Copy, Brain } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStyles } from './styles';
@@ -47,6 +47,7 @@ export function ThinkingPanel({
   const [liveTime, setLiveTime] = useState(0);
   const contentRef = useRef<HTMLDivElement>(null);
   const startTimeRef = useRef<number | null>(null);
+  const { message } = App.useApp();
 
   // Track live thinking time
   // Update every 500ms instead of 100ms to reduce unnecessary re-renders
